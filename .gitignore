@@ -12,4 +12,9 @@ config.yaml
 config*.yaml
 !config.example.yaml
 .DS_Store
-tests/tmp
+tests/tmp/
+tests/tmp/*
+docs/complete
+docs/complete/*
+docs/superpowers
+docs/superpower/*

@@ -12,3 +12,4 @@ config.yaml
 config*.yaml
 !config.example.yaml
 .DS_Store
+tests/tmp

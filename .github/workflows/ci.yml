@@ -26,10 +26,10 @@ jobs:
           rm -f tests/tmp/task6/*.db || true
 
           export LLAMA_MANAGER_CONFIG=tests/fixtures/migration-task6-config.yaml
-          alembic -x db=controller upgrade head
-          alembic -x db=auth upgrade head
-          alembic -x db=audit upgrade head
-          alembic -x db=chat_sessions upgrade head
+          alembic -x db=controller upgrade controller@head
+          alembic -x db=auth upgrade auth@head
+          alembic -x db=audit upgrade audit@head
+          alembic -x db=chat_sessions upgrade chat_sessions@head
 
           python - <<'PY'
           import sqlite3
@@ -75,26 +75,32 @@ jobs:
           PY
 
           export LLAMA_MANAGER_CONFIG=tests/fixtures/migration-task6-existing-config.yaml
-          alembic -x db=controller stamp head
-          alembic -x db=auth stamp head
-          alembic -x db=audit stamp head
-          alembic -x db=chat_sessions stamp head
+          alembic -x db=controller stamp controller@head
+          alembic -x db=auth stamp auth@head
+          alembic -x db=audit stamp audit@head
+          alembic -x db=chat_sessions stamp chat_sessions@head
 
-          alembic -x db=controller upgrade head
-          alembic -x db=auth upgrade head
-          alembic -x db=audit upgrade head
-          alembic -x db=chat_sessions upgrade head
+          alembic -x db=controller upgrade controller@head
+          alembic -x db=auth upgrade auth@head
+          alembic -x db=audit upgrade audit@head
+          alembic -x db=chat_sessions upgrade chat_sessions@head
 
           python - <<'PY'
           import sqlite3
           from pathlib import Path
 
           base = Path('tests/tmp/task6_existing')
-          for name in ('controller.db', 'auth.db', 'audit.db', 'chat_sessions.db'):
+          expected_revisions = {
+              'controller.db': '20260513_0001',
+              'auth.db': '20260513_0002',
+              'audit.db': '20260513_0003',
+              'chat_sessions.db': '20260513_0004',
+          }
+          for name, expected in expected_revisions.items():
               conn = sqlite3.connect(base / name)
               rev = conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
               conn.close()
-              assert rev == '20260513_0004', f"{name}: unexpected revision {rev}"
+              assert rev == expected, f"{name}: unexpected revision {rev}"
           PY
 
   parity-suite:

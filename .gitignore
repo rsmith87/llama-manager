@@ -6,15 +6,12 @@ logs/
 config.yaml
 .llama_manager.pid
 .specstory
-.specstory/*
 .vscode
 .playwright-mcp
 config*.yaml
 !config.example.yaml
 .DS_Store
-tests/tmp/
-tests/tmp/*
+tests/tmp
 docs/complete
-docs/complete/*
 docs/superpowers
-docs/superpower/*
+llamacpp_handler.egg-info

@@ -3,7 +3,9 @@ import {
   finalizeTelemetry,
 } from "/ui/chat_telemetry.js";
 import {
+  chooseChatSessionToResume,
   buildChatSessionSavePayload,
+  isChatSessionReusable,
   nextSelectedChatSessionId,
 } from "/ui/chat_sessions.js";
 import {
@@ -49,6 +51,7 @@ const CHAT_PRESETS = {
   creative: { temperature: 1.0, top_p: 1.0, top_k: 80, min_p: 0.0, repeat_penalty: 1.0, seed: -1 },
 };
 const CHAT_PRESET_STORAGE_KEY = "lm_chat_preset";
+const ACTIVE_CHAT_SESSION_STORAGE_KEY = "lm_active_chat_session_id";
 
 const $ = (id) => document.getElementById(id);
 
@@ -430,23 +433,87 @@ async function refreshChatSessions() {
   renderChatSessionOptions();
 }
 
+function getStoredActiveChatSessionId() {
+  try {
+    return localStorage.getItem(ACTIVE_CHAT_SESSION_STORAGE_KEY) || "";
+  } catch (_error) {
+    return "";
+  }
+}
+
+function persistActiveChatSessionId(sessionId) {
+  try {
+    if (sessionId) {
+      localStorage.setItem(ACTIVE_CHAT_SESSION_STORAGE_KEY, sessionId);
+    } else {
+      localStorage.removeItem(ACTIVE_CHAT_SESSION_STORAGE_KEY);
+    }
+  } catch (_error) {
+    // ignore storage failures
+  }
+}
+
+function clearActiveChatSessionSelection() {
+  state.selectedChatSessionId = "";
+  persistActiveChatSessionId("");
+  const select = $("chat-session-select");
+  if (select) {
+    select.value = "";
+  }
+}
+
 function renderChatSessionOptions() {
   const select = $("chat-session-select");
   if (!select) return;
   if (!state.chatSessions.length) {
-    state.selectedChatSessionId = "";
+    clearActiveChatSessionSelection();
     select.innerHTML = `<option value="">No saved sessions</option>`;
-    select.value = "";
     return;
   }
   select.innerHTML = state.chatSessions
     .map((session) => `<option value="${escapeHtml(session.id)}">${escapeHtml(session.name)} (${escapeHtml(session.model)})</option>`)
     .join("");
-  const selectedId = state.chatSessions.some((session) => session.id === state.selectedChatSessionId)
-    ? state.selectedChatSessionId
-    : state.chatSessions[0].id;
+  const selectedId = chooseChatSessionToResume({
+    sessions: state.chatSessions,
+    preferredSessionId: state.selectedChatSessionId || getStoredActiveChatSessionId(),
+  });
+  if (!selectedId) {
+    clearActiveChatSessionSelection();
+    select.value = "";
+    return;
+  }
   state.selectedChatSessionId = selectedId;
+  persistActiveChatSessionId(selectedId);
   select.value = selectedId;
+}
+
+async function resumeActiveChatSession() {
+  if (!state.chatSessions.length) {
+    return;
+  }
+  const sessionId = chooseChatSessionToResume({
+    sessions: state.chatSessions,
+    preferredSessionId: state.selectedChatSessionId || getStoredActiveChatSessionId(),
+  });
+  if (!sessionId) {
+    clearActiveChatSessionSelection();
+    return;
+  }
+  const currentSession = state.chatSessions.find((session) => session.id === sessionId);
+  if (!isChatSessionReusable(currentSession)) {
+    clearActiveChatSessionSelection();
+    return;
+  }
+  if (state.selectedChatSessionId === sessionId && state.chatMessages.length) {
+    persistActiveChatSessionId(sessionId);
+    return;
+  }
+  const previousSelectedId = state.selectedChatSessionId;
+  state.selectedChatSessionId = sessionId;
+  $("chat-session-select").value = sessionId;
+  if (previousSelectedId !== sessionId || !state.chatMessages.length) {
+    await loadChatSession({ sessionId, silent: true });
+  }
 }
 
 
@@ -581,6 +648,7 @@ function renderActivePage() {
   if (state.activePage === "chat") {
     renderChatModelOptions();
     void refreshChatCapabilities();
+    void resumeActiveChatSession();
   }
   if (state.activePage === "embeddings") {
     renderEmbeddingsModelOptions();
@@ -1603,8 +1671,10 @@ function clearChat() {
     showToast("Wait for the current chat response to finish.");
     return;
   }
+  clearActiveChatSessionSelection();
   state.chatMessages = [];
   renderChatTranscript();
+  showToast("Started a new chat");
 }
 
 function renderChatTranscript() {
@@ -1918,7 +1988,7 @@ async function saveChatSession({ saveAsNew = false } = {}) {
     target: $("chat-target").value || "auto",
     messages: state.chatMessages.filter((m) => !m.pending && m.role !== "error").map((m) => ({ role: m.role, content: String(m.content || "") })),
     requestDefaults: currentChatDefaults(),
-    selectedSessionId: state.selectedChatSessionId,
+    selectedSessionId: saveAsNew ? "" : state.selectedChatSessionId,
     saveAsNew,
   });
   const saved = await api("/chat/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -1926,15 +1996,18 @@ async function saveChatSession({ saveAsNew = false } = {}) {
     savedSessionId: saved?.id || "",
     saveAsNew,
   });
+  persistActiveChatSessionId(state.selectedChatSessionId);
   showToast(saveAsNew ? "Session saved as new" : "Session saved");
   await refreshChatSessions();
 }
 
-async function loadChatSession() {
-  const id = $("chat-session-select").value;
+async function loadChatSession({ sessionId = "", silent = false } = {}) {
+  const id = sessionId || $("chat-session-select").value;
   if (!id) return showToast("Select a saved session.");
   const session = await api(`/chat/sessions/${encodeURIComponent(id)}`);
   state.selectedChatSessionId = id;
+  persistActiveChatSessionId(id);
+  $("chat-session-select").value = id;
   $("chat-session-name").value = session.name || "";
   $("chat-model").value = session.model || $("chat-model").value;
   $("chat-target").value = session.target_selector || "auto";
@@ -1967,7 +2040,9 @@ async function loadChatSession() {
   state.chatMessages = (session.messages || []).map((m) => ({ role: m.role, content: m.content }));
   renderChatDefaultsDiff();
   renderChatTranscript();
-  showToast("Session loaded");
+  if (!silent) {
+    showToast("Session loaded");
+  }
 }
 
 async function runEmbeddings() {
@@ -2202,7 +2277,7 @@ async function deleteChatSession() {
   if (!id) return showToast("Select a saved session.");
   await api(`/chat/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
   if (state.selectedChatSessionId === id) {
-    state.selectedChatSessionId = "";
+    clearActiveChatSessionSelection();
   }
   showToast("Session deleted");
   await refreshChatSessions();
@@ -2392,6 +2467,7 @@ $("chat-kv-refresh-button")?.addEventListener("click", () => void refreshKvSlots
 $("chat-kv-clear-button")?.addEventListener("click", () => void clearKvSlot());
 $("chat-session-select")?.addEventListener("change", (event) => {
   state.selectedChatSessionId = event.target.value || "";
+  persistActiveChatSessionId(state.selectedChatSessionId);
 });
 $("chat-session-save-button")?.addEventListener("click", () => void saveChatSession());
 $("chat-session-save-as-new-button")?.addEventListener("click", () => void saveChatSession({ saveAsNew: true }));

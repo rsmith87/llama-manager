@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "llamacpp-handler"
 version = "0.1.0"
@@ -20,6 +24,12 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
 ]
+
+[tool.setuptools.packages.find]
+include = ["llama_manager*"]
+
+[tool.setuptools.package-data]
+llama_manager = ["ui/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

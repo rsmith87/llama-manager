@@ -1,0 +1,44 @@
+mode: agent
+llama_server_bin: llama-server
+llama_cpp_dir: ./llama.cpp
+python_bin: python3
+hf_models_dirs:
+ - ./models/HFModels
+log_dir: ./logs
+# Optional persistence DB URL overrides (defaults are under log_dir):
+# controller_db_url: sqlite+pysqlite:///./logs/controller_state.db
+# auth_db_url: sqlite+pysqlite:///./logs/auth_store.db
+# audit_db_url: sqlite+pysqlite:///./logs/audit_events.db
+# chat_sessions_db_url: sqlite+pysqlite:///./logs/chat_sessions.db
+agent_worker_enabled: false
+agent_worker_poll_interval_seconds: 2
+agent_worker_max_jobs: 1
+agent_worker_labels: {}
+agent_worker_capacity: {}
+
+models:
+  example-model:
+    path: ./models/example-model/model.gguf
+    port: 8080
+    ctx: 8192
+    gpu_layers: 999
+    host: 0.0.0.0
+    reasoning: auto
+    reasoning_budget: 2048
+    extra_args: []
+    supports_json_schema: false
+    supports_grammar: false
+  gemma-4-E2B-it:
+    path: ./models/HFModels/gemma-4-E2B-it/model.gguf
+    port: 8081
+    ctx: 8192
+    gpu_layers: 999
+    host: 0.0.0.0
+    vision: true
+    mmproj: ./models/HFModels/gemma-4-E2B-it/mmproj.gguf
+
+nodes:
+  mac-mini:
+    url: http://127.0.0.1:9000
+  windows-2080ti:
+    url: http://192.168.1.74:9000

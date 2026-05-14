@@ -1,0 +1,14 @@
+.pytest_cache/
+__pycache__/
+*.py[cod]
+.venv/
+logs/
+config.yaml
+.llama_manager.pid
+.specstory
+.specstory/*
+.vscode
+.playwright-mcp
+config*.yaml
+!config.example.yaml
+.DS_Store

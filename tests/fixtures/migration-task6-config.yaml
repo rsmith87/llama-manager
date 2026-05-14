@@ -1,0 +1,6 @@
+mode: controller
+log_dir: ./logs
+controller_db_url: sqlite+pysqlite:///./tests/tmp/task6/controller.db
+auth_db_url: sqlite+pysqlite:///./tests/tmp/task6/auth.db
+audit_db_url: sqlite+pysqlite:///./tests/tmp/task6/audit.db
+chat_sessions_db_url: sqlite+pysqlite:///./tests/tmp/task6/chat_sessions.db

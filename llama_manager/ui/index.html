@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Llama Manager</title>
+    <link rel="stylesheet" href="/ui/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="app-sidebar" aria-label="Primary">
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true">LM</div>
+          <div>
+            <h1>Llama Manager</h1>
+            <p id="subtitle">Loading service state...</p>
+          </div>
+        </div>
+        <nav class="app-nav" aria-label="Primary navigation">
+          <button class="nav-button active" type="button" data-page-target="dashboard"><span class="nav-icon" data-icon="dashboard"></span><span>Dashboard</span></button>
+          <button class="nav-button" type="button" data-page-target="chat"><span class="nav-icon" data-icon="chat"></span><span>Chat</span></button>
+          <button class="nav-button" type="button" data-page-target="nodes"><span class="nav-icon" data-icon="nodes"></span><span>Nodes</span></button>
+          <button class="nav-button" type="button" data-page-target="gguf-library"><span class="nav-icon" data-icon="library"></span><span>GGUF Library</span></button>
+          <button class="nav-button" type="button" data-page-target="hf-to-gguf"><span class="nav-icon" data-icon="convert"></span><span>HF to GGUF</span></button>
+          <button class="nav-button" type="button" data-page-target="quantization"><span class="nav-icon" data-icon="quant"></span><span>Quantization</span></button>
+          <button class="nav-button" type="button" data-page-target="controller-ops"><span class="nav-icon" data-icon="controller"></span><span>Controller Ops</span></button>
+          <button class="nav-button" type="button" data-page-target="embeddings"><span class="nav-icon" data-icon="embed"></span><span>Embeddings</span></button>
+          <button class="nav-button" type="button" data-page-target="audit"><span class="nav-icon" data-icon="audit"></span><span>Audit</span></button>
+          <button id="open-logs-button" class="nav-button modal-nav-button" type="button" aria-haspopup="dialog"><span class="nav-icon" data-icon="logs"></span><span>Logs</span><span class="modal-indicator" data-icon="modal"></span></button>
+        </nav>
+        <div class="sidebar-footer">
+          <span id="mode-pill" class="pill">unknown</span>
+          <span class="muted">Static console</span>
+        </div>
+      </aside>
+
+      <div class="app-main">
+        <header class="app-header">
+          <button id="mobile-menu-button" class="icon-button mobile-only" type="button" aria-label="Toggle navigation"><span class="nav-icon" data-icon="menu"></span></button>
+          <div class="command-center">
+            <span class="command-icon" aria-hidden="true">/</span>
+            <span class="command-copy">Operations console</span>
+          </div>
+          <div class="header-actions">
+            <input id="auth-username" type="text" placeholder="username" />
+            <input id="auth-api-key" type="password" placeholder="api key" />
+            <button id="auth-login-button" type="button">Login</button>
+            <button id="auth-logout-button" type="button">Logout</button>
+            <span id="auth-user" class="muted">Not logged in</span>
+            <button id="refresh-button" class="primary" type="button">Refresh</button>
+            <span id="last-updated" class="muted">Never refreshed</span>
+          </div>
+        </header>
+
+        <main class="layout">
+          <div class="page active dashboard-page" id="page-dashboard" data-page="dashboard">
+            <section class="panel health-panel dashboard-health">
+              <div class="panel-title compact-title">
+                <div>
+                  <span class="eyebrow">Live Health</span>
+                  <h2>System Snapshot</h2>
+                </div>
+                <span class="panel-icon" data-icon="pulse"></span>
+              </div>
+              <div class="metric-grid">
+                <div><span class="metric-icon" data-icon="cpu"></span><span class="label">CPU</span><strong id="cpu-value">-</strong></div>
+                <div><span class="metric-icon" data-icon="memory"></span><span class="label">RAM</span><strong id="ram-value">-</strong></div>
+                <div><span class="metric-icon" data-icon="gpu"></span><span class="label">VRAM</span><strong id="vram-value">-</strong></div>
+                <div><span class="metric-icon" data-icon="models"></span><span class="label">Configured</span><strong id="configured-value">-</strong></div>
+              </div>
+            </section>
+
+            <section class="panel dashboard-models">
+              <div class="panel-title">
+                <div><span class="eyebrow">This agent</span><h2>Local Models</h2></div>
+                <button type="button" class="ghost-button" data-page-target="gguf-library">Add Model</button>
+              </div>
+              <div class="table-wrap dense-table">
+                <table>
+                  <thead><tr><th>Name</th><th>Status</th><th>Port</th><th>PID</th><th>Path</th><th>Source</th><th>Actions</th></tr></thead>
+                  <tbody id="models-body"><tr><td colspan="7" class="empty">Loading models...</td></tr></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel dashboard-nodes" id="nodes-panel">
+              <div class="panel-title"><div><span class="eyebrow">Controller</span><h2>Active Nodes</h2></div><button type="button" class="ghost-button" data-page-target="nodes">View Nodes</button></div>
+              <div id="nodes-body" class="nodes-list"><p class="empty">Loading nodes...</p></div>
+            </section>
+
+            <section class="panel quick-actions-panel">
+              <div class="panel-title"><div><span class="eyebrow">Shortcuts</span><h2>Quick Actions</h2></div></div>
+              <div class="quick-actions">
+                <button type="button" class="quick-action" data-page-target="chat"><span data-icon="chat"></span><strong>Open Chat</strong><small>Smoke test a route</small></button>
+                <button type="button" class="quick-action" data-page-target="quantization"><span data-icon="quant"></span><strong>Quantize</strong><small>Fit a model to VRAM</small></button>
+                <button type="button" class="quick-action" data-page-target="controller-ops"><span data-icon="controller"></span><strong>Controller</strong><small>Jobs and nodes</small></button>
+              </div>
+            </section>
+
+          </div>
+
+          <section class="page chat-page" id="page-chat" data-page="chat">
+            <div class="page-heading"><div><span class="eyebrow">Inference</span><h2>Chat Workbench</h2></div><span id="chat-state" class="muted">Quick llama.cpp smoke test</span></div>
+            <div class="chat-layout">
+              <section class="panel chat-main-panel">
+                <div id="chat-transcript" class="chat-transcript"><p class="empty">Start a running model, choose it here, and send a test prompt.</p></div>
+                <div class="chat-toolbar compact-toolbar">
+                  <button id="chat-stop-button" type="button" disabled>Stop generating</button>
+                  <button id="chat-regenerate-button" type="button" disabled>Regenerate</button>
+                  <span id="chat-hint" class="muted">Enter to send, Shift+Enter for newline</span>
+                </div>
+                <div class="chat-compose primary-compose">
+                  <textarea id="chat-input" rows="4" placeholder="Ask the selected model something..."></textarea>
+                  <input id="chat-image-input" type="file" accept="image/*" />
+                  <button id="send-chat-button" class="primary" type="button">Send</button>
+                </div>
+              </section>
+              <aside class="panel chat-side-panel">
+                <div class="panel-title"><div><span class="eyebrow">Route</span><h2>Controls</h2></div><button id="open-chat-advanced" type="button">Advanced</button></div>
+                <div class="side-form">
+                  <label><span class="label">Model</span><select id="chat-model"></select></label>
+                  <label><span class="label">Route</span><select id="chat-target"></select></label>
+                  <label><span class="label">Preset</span><select id="chat-preset"><option value="balanced">Balanced</option><option value="deterministic">Deterministic</option><option value="creative">Creative</option></select></label>
+                  <label><span class="label">Session name</span><input id="chat-session-name" type="text" placeholder="Session name" /></label>
+                  <label><span class="label">Saved sessions</span><select id="chat-session-select"></select></label>
+                </div>
+                <div class="stacked-actions">
+                  <button id="chat-session-save-button" type="button">Save Session</button>
+                  <button id="chat-session-save-as-new-button" type="button">Save As New</button>
+                  <button id="chat-session-load-button" type="button">Load</button>
+                  <button id="chat-session-delete-button" type="button">Delete</button>
+                  <button id="clear-chat-button" type="button">Clear Chat</button>
+                </div>
+                <div id="chat-default-diff" class="detail-json compact-json">Using default chat settings</div>
+                <div class="chat-toolbar no-border"><label class="checkbox-label"><input id="dry-run-toggle" type="checkbox" /><span>Dry run destructive ops</span></label></div>
+              </aside>
+            </div>
+          </section>
+
+          <section class="page table-page" id="page-nodes" data-page="nodes">
+            <div class="page-heading"><div><span class="eyebrow">Fleet</span><h2>Nodes</h2></div><span id="nodes-page-summary" class="muted">Controller node inventory</span></div>
+            <div class="controller-filters filter-bar">
+              <input id="nodes-filter-name" type="text" placeholder="node or url" />
+              <select id="nodes-filter-status"><option value="">all</option><option value="reachable">reachable</option><option value="offline">offline</option></select>
+              <select id="nodes-filter-registration"><option value="">all registrations</option><option value="static">static</option><option value="dynamic">dynamic</option></select>
+              <button id="nodes-refresh-button" type="button">Refresh Nodes</button>
+            </div>
+            <section class="panel nodes-page-panel">
+              <div id="nodes-page-body" class="nodes-page-list"><p class="empty">Loading nodes...</p></div>
+            </section>
+          </section>
+
+          <section class="page table-page" id="page-audit" data-page="audit">
+            <div class="page-heading"><div><span class="eyebrow">Security</span><h2>Audit</h2></div><span class="muted">Operational action log</span></div>
+            <div class="controller-filters filter-bar">
+              <input id="audit-filter-type" type="text" placeholder="event type" />
+              <input id="audit-filter-target" type="text" placeholder="target" />
+              <select id="audit-filter-dry-run"><option value="">all</option><option value="true">dry-run only</option><option value="false">executed only</option></select>
+              <input id="audit-filter-from" type="datetime-local" />
+              <input id="audit-filter-to" type="datetime-local" />
+              <input id="audit-limit" type="number" min="1" max="1000" step="1" value="200" />
+              <button id="audit-refresh-button" type="button">Refresh Audit</button>
+              <button id="audit-my-actions-button" type="button">My Actions</button>
+            </div>
+            <div class="controller-grid audit-grid">
+              <article class="controller-card span-2"><h3>Events</h3><div class="table-wrap"><table><thead><tr><th>Time</th><th>Type</th><th>Dry</th><th>Target</th><th>Route</th><th>Action</th></tr></thead><tbody id="audit-events-body"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody></table></div></article>
+              <article class="controller-card"><h3>Event Detail</h3><div id="audit-event-detail" class="detail-json tall-json">Select an event to inspect payload details.</div></article>
+              <article class="controller-card"><h3>Key Management (Admin)</h3><div class="controller-filters"><input id="keys-username" type="text" placeholder="username" /><select id="keys-role"><option value="viewer">viewer</option><option value="operator" selected>operator</option><option value="admin">admin</option></select><button id="keys-create-button" type="button">Create Key</button><button id="keys-refresh-button" type="button">Refresh Keys</button></div><div id="keys-create-output" class="detail-json compact-json">No key created yet.</div><div class="table-wrap"><table><thead><tr><th>User</th><th>Role</th><th>Hint</th><th>Revoked</th><th>Created</th><th>Action</th></tr></thead><tbody id="keys-body"><tr><td colspan="6" class="empty">No key data loaded.</td></tr></tbody></table></div></article>
+            </div>
+          </section>
+
+          <section class="page split-page" id="page-embeddings" data-page="embeddings">
+            <div class="page-heading"><div><span class="eyebrow">Vectors</span><h2>Embeddings Workbench</h2></div><span class="muted">Batch /v1/embeddings</span></div>
+            <div class="split-layout">
+              <aside class="panel side-panel"><div class="side-form"><label><span class="label">Model</span><select id="embeddings-model"></select></label><label><span class="label">Route</span><select id="embeddings-target"></select></label><label><span class="label">Inputs</span><textarea id="embeddings-input" rows="10" placeholder="One input per line"></textarea></label></div><div class="stacked-actions"><button id="embeddings-run-button" class="primary" type="button">Run</button><button id="embeddings-export-json" type="button">Export JSON</button><button id="embeddings-export-csv" type="button">Export CSV</button></div></aside>
+              <section class="panel"><div class="panel-title"><h2>Results</h2></div><div class="table-wrap"><table><thead><tr><th>#</th><th>ID</th><th>Object</th><th>Model</th><th>Dimensions</th><th>Usage</th><th>Vector preview</th></tr></thead><tbody id="embeddings-body"><tr><td colspan="7" class="empty">No embeddings run yet.</td></tr></tbody></table></div></section>
+              <section class="panel span-all"><div class="chat-controls compact-controls"><label><span class="label">Anchor index</span><input id="embeddings-anchor-index" type="number" min="0" step="1" value="0" /></label><button id="embeddings-similarity-button" type="button">Compute Similarity</button><button id="embeddings-neighbors-button" type="button">Nearest Neighbors</button><button id="embeddings-cluster-button" type="button">Quick Clusters</button></div><div class="table-wrap"><table><thead><tr><th>Rank</th><th>Index</th><th>ID</th><th>Score</th></tr></thead><tbody id="embeddings-similarity-body"><tr><td colspan="4" class="empty">Run embeddings first.</td></tr></tbody></table></div><pre id="embeddings-cluster-output" class="detail-json">No clustering run yet.</pre></section>
+            </div>
+          </section>
+
+          <section class="page table-page" id="page-gguf-library" data-page="gguf-library">
+            <div class="page-heading"><div><span class="eyebrow">Files</span><h2>GGUF Library</h2></div><span class="muted">Discovered files you can add as runnable models</span></div>
+            <div class="library-layout"><aside class="panel side-panel"><div class="panel-title"><h2>Add Settings</h2></div><div class="library-controls"><label><span class="label">Model name</span><input id="library-model-name" type="text" placeholder="select a GGUF file" /></label><label><span class="label">Next port</span><input id="library-port" type="number" min="1" max="65535" step="1" value="8080" /></label><label><span class="label">Context</span><input id="library-ctx" type="number" min="512" max="262144" step="512" value="4096" /></label><label><span class="label">GPU layers</span><input id="library-gpu-layers" type="number" min="0" max="999" step="1" value="0" /></label><label><span class="label">Reasoning</span><select id="library-reasoning"><option value="auto">Auto</option><option value="off">Off</option><option value="on">On</option></select></label><label><span class="label">Think budget</span><input id="library-reasoning-budget" type="number" min="-1" max="8192" step="1" value="2048" /></label></div></aside><section class="panel"><div class="table-wrap"><table><thead><tr><th>Directory</th><th>File</th><th>Size</th><th>Status</th><th>Path</th><th>Actions</th></tr></thead><tbody id="library-body"><tr><td colspan="6" class="empty">Loading GGUF files...</td></tr></tbody></table></div></section></div>
+          </section>
+
+          <section class="page table-page" id="page-hf-to-gguf" data-page="hf-to-gguf">
+            <div class="page-heading"><div><span class="eyebrow">Conversion</span><h2>HF To GGUF</h2></div><span class="muted">Writes GGUF inside each HF model folder</span></div>
+            <section class="panel"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Status</th><th>GGUF</th><th>Path</th><th>Output</th><th>Python</th><th>Actions</th></tr></thead><tbody id="conversions-body"><tr><td colspan="7" class="empty">Loading HF models...</td></tr></tbody></table></div></section>
+          </section>
+
+          <section class="page table-page" id="page-quantization" data-page="quantization">
+            <div class="page-heading"><div><span class="eyebrow">Optimization</span><h2>Quantization</h2></div><span class="muted">llama.cpp quantize workflow</span></div>
+            <div class="library-layout"><aside class="panel side-panel"><div class="panel-title"><h2>Advisor</h2></div><div class="chat-controls stacked-controls"><label><span class="label">Target VRAM (GB)</span><input id="advisor-vram-gb" type="number" min="1" max="256" step="1" value="16" /></label><label><span class="label">Latency Goal</span><select id="advisor-latency-goal"><option value="balanced">Balanced</option><option value="low">Low latency</option><option value="quality">Quality first</option></select></label><label><span class="label">Quality Goal</span><select id="advisor-quality-goal"><option value="balanced">Balanced</option><option value="high">High quality</option><option value="max">Max quality</option></select></label><button id="advisor-run-button" type="button">Recommend Quant</button></div><div id="advisor-output" class="detail-json compact-json">Run advisor to get quantization recommendations.</div></aside><section class="panel"><div class="table-wrap"><table><thead><tr><th>Model</th><th>Source</th><th>Size</th><th>Type</th><th>Status</th><th>Output</th><th>Actions</th></tr></thead><tbody id="quantizations-body"><tr><td colspan="7" class="empty">Loading GGUF files...</td></tr></tbody></table></div></section></div>
+          </section>
+
+          <section class="page table-page" id="page-controller-ops" data-page="controller-ops">
+            <div class="page-heading"><div><span class="eyebrow">Fleet</span><h2>Controller Ops</h2></div><span class="muted">Jobs, nodes, retention, archive</span></div>
+            <div class="controller-grid">
+              <article class="controller-card"><h3>Jobs</h3><div class="controller-filters"><input id="jobs-filter-status" type="text" placeholder="status" /><input id="jobs-filter-type" type="text" placeholder="type" /><input id="jobs-filter-target" type="text" placeholder="target" /></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>Status</th><th>Type</th><th>Target</th><th>Updated</th><th>Action</th></tr></thead><tbody id="controller-jobs-body"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody></table></div></article>
+              <article class="controller-card"><h3>Job Detail</h3><div id="controller-job-detail" class="detail-json tall-json">Select a job to inspect details, events, and artifacts.</div></article>
+              <article class="controller-card"><h3>Node Capabilities</h3><div id="controller-node-capabilities" class="detail-json tall-json">Loading...</div></article>
+              <article class="controller-card"><h3>Retention & Archive</h3><div class="controller-actions"><button id="controller-export-button" type="button">Run Archive Export</button></div><div id="controller-retention" class="detail-json tall-json">Loading...</div></article>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div id="chat-advanced-drawer" class="drawer" aria-hidden="true">
+      <div class="drawer-backdrop" data-drawer-close></div>
+      <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="chat-advanced-title">
+        <div class="drawer-header"><div><span class="eyebrow">Advanced</span><h2 id="chat-advanced-title">Chat Settings</h2></div><button type="button" class="icon-button" data-drawer-close aria-label="Close advanced settings">×</button></div>
+        <div class="drawer-content">
+          <div class="chat-controls drawer-grid">
+            <label><span class="label">Temperature</span><input id="chat-temperature" type="number" min="0" max="2" step="0.1" value="0.7" /></label>
+            <label><span class="label">Max tokens</span><input id="chat-max-tokens" type="number" min="1" max="8192" step="1" value="512" /></label>
+            <label><span class="label">Top p</span><input id="chat-top-p" type="number" min="0" max="1" step="0.01" value="1.0" /></label>
+            <label><span class="label">Top k</span><input id="chat-top-k" type="number" min="0" max="200" step="1" value="40" /></label>
+            <label><span class="label">Min p</span><input id="chat-min-p" type="number" min="0" max="1" step="0.01" value="0.0" /></label>
+            <label><span class="label">Repeat penalty</span><input id="chat-repeat-penalty" type="number" min="0" max="2" step="0.01" value="1.1" /></label>
+            <label><span class="label">Seed</span><input id="chat-seed" type="number" step="1" value="-1" /></label>
+            <label><span class="label">Stop (comma)</span><input id="chat-stop" type="text" placeholder="</s>,User:" /></label>
+            <label><span class="label">Structured mode</span><select id="chat-structured-mode"><option value="none">None</option><option value="json_schema">JSON Schema</option><option value="grammar">Grammar</option></select></label>
+            <label class="checkbox-label"><input id="chat-reasoning" type="checkbox" /><span>Reasoning</span></label>
+            <label class="checkbox-label"><input id="chat-cache-prompt" type="checkbox" checked /><span>Cache prompt</span></label>
+            <label><span class="label">KV slot</span><input id="chat-slot-id" type="number" min="0" step="1" placeholder="auto" /></label>
+          </div>
+          <div class="chat-compose drawer-compose"><textarea id="chat-json-schema" rows="5" placeholder='JSON Schema (object), e.g. {"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"]}'></textarea><textarea id="chat-grammar" rows="5" placeholder='Grammar (GBNF), e.g. root ::= "yes" | "no"'></textarea></div>
+          <div id="chat-structured-validation" class="muted">Structured output disabled</div>
+          <div id="chat-feature-matrix" class="muted">Feature matrix unavailable</div>
+          <div class="chat-toolbar"><button id="chat-capabilities-copy" type="button">Copy Capabilities JSON</button><button id="chat-inspect-button" type="button">Inspect prompt/template</button><button id="chat-kv-refresh-button" type="button">Refresh KV slots</button><input id="chat-kv-slot-id" type="number" min="0" step="1" placeholder="slot id" /><button id="chat-kv-clear-button" type="button">Clear slot</button></div>
+          <span id="chat-inspect-summary" class="muted">No prompt inspection yet</span>
+          <pre id="chat-capabilities-detail" class="detail-json">Capabilities detail unavailable</pre>
+        </div>
+      </aside>
+    </div>
+
+    <dialog id="gguf-detail-modal" class="modal" aria-labelledby="gguf-detail-title">
+      <section class="modal-panel">
+        <div class="modal-header">
+          <div><span class="eyebrow">GGUF File</span><h2 id="gguf-detail-title">Model Detail</h2></div>
+          <button type="button" class="icon-button" data-modal-close aria-label="Close model detail">×</button>
+        </div>
+        <div class="modal-content">
+          <div id="gguf-detail-body" class="detail-list"></div>
+          <div class="modal-actions">
+            <button id="gguf-detail-add-button" class="primary" type="button">Add Model</button>
+            <button id="gguf-detail-delete-button" class="danger" type="button">Delete GGUF</button>
+          </div>
+        </div>
+      </section>
+    </dialog>
+
+    <dialog id="logs-modal" class="modal modal-wide" aria-labelledby="logs-modal-title">
+      <section class="modal-panel">
+        <div class="modal-header">
+          <div>
+            <span class="eyebrow">Terminal</span>
+            <h2 id="logs-modal-title">Recent Logs</h2>
+          </div>
+          <div class="modal-header-actions">
+            <span id="log-title" class="muted">Select a model</span>
+            <button type="button" class="icon-button" data-modal-close aria-label="Close logs">×</button>
+          </div>
+        </div>
+        <pre id="log-output" class="modal-log-output">No logs loaded.</pre>
+      </section>
+    </dialog>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/ui/app.js"></script>
+  </body>
+</html>

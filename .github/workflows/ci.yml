@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  migration-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Fresh install migration smoke
+        run: |
+          mkdir -p tests/tmp/task6
+          rm -f tests/tmp/task6/*.db || true
+
+          export LLAMA_MANAGER_CONFIG=tests/fixtures/migration-task6-config.yaml
+          alembic -x db=controller upgrade head
+          alembic -x db=auth upgrade head
+          alembic -x db=audit upgrade head
+          alembic -x db=chat_sessions upgrade head
+
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          base = Path('tests/tmp/task6')
+          checks = {
+              'controller.db': {'jobs','job_attempts','node_leases','job_events','artifacts','schema_meta','controller_leases','alembic_version'},
+              'auth.db': {'api_keys','alembic_version'},
+              'audit.db': {'audit_events','alembic_version'},
+              'chat_sessions.db': {'chat_sessions','alembic_version'},
+          }
+
+          for name, expected in checks.items():
+              conn = sqlite3.connect(base / name)
+              found = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+              conn.close()
+              missing = expected - found
+              extras = found - expected
+              assert not missing, f"{name}: missing tables {sorted(missing)}"
+              assert not extras, f"{name}: unexpected tables {sorted(extras)}"
+          PY
+
+      - name: Existing install stamp and upgrade smoke
+        run: |
+          mkdir -p tests/tmp/task6_existing
+          rm -f tests/tmp/task6_existing/*.db || true
+
+          python - <<'PY'
+          from pathlib import Path
+          from tests.persistence_db_setup import (
+              prepare_audit_db,
+              prepare_auth_db,
+              prepare_chat_sessions_db,
+              prepare_controller_db,
+          )
+
+          base = Path('tests/tmp/task6_existing')
+          prepare_controller_db(base / 'controller.db')
+          prepare_auth_db(base / 'auth.db')
+          prepare_audit_db(base / 'audit.db')
+          prepare_chat_sessions_db(base / 'chat_sessions.db')
+          PY
+
+          export LLAMA_MANAGER_CONFIG=tests/fixtures/migration-task6-existing-config.yaml
+          alembic -x db=controller stamp head
+          alembic -x db=auth stamp head
+          alembic -x db=audit stamp head
+          alembic -x db=chat_sessions stamp head
+
+          alembic -x db=controller upgrade head
+          alembic -x db=auth upgrade head
+          alembic -x db=audit upgrade head
+          alembic -x db=chat_sessions upgrade head
+
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          base = Path('tests/tmp/task6_existing')
+          for name in ('controller.db', 'auth.db', 'audit.db', 'chat_sessions.db'):
+              conn = sqlite3.connect(base / name)
+              rev = conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+              conn.close()
+              assert rev == '20260513_0004', f"{name}: unexpected revision {rev}"
+          PY
+
+  parity-suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run persistence parity and toggle tests
+        run: |
+          pytest -q \
+            tests/test_persistence_dto.py \
+            tests/test_orchestration_orm_models.py \
+            tests/test_app_state_orm_models.py \
+            tests/test_auth_store_orm.py \
+            tests/test_audit_store_orm.py \
+            tests/test_chat_session_store_orm.py \
+            tests/test_orchestration_store.py \
+            tests/test_api.py \
+            tests/test_config.py \
+            -k "auth_store_backend_toggle_uses_orm_store or audit_store_backend_toggle_uses_orm_store or chat_sessions_store_backend_toggle_uses_orm_store or orchestration_store_backend_toggle_uses_orm_store or auth_store_orm_behavior or auth_store_legacy_behavior or audit_store_orm_behavior or audit_store_legacy_behavior or chat_session_store_orm_behavior or chat_session_store_legacy_behavior or orchestration_store_orm_sets_schema_version or orchestrator_leader_lease_single_holder_orm_store or controller_phase3_defaults"

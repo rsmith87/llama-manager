@@ -1,0 +1,47 @@
+mode: agent
+
+# Linux agent runtime paths. Adjust these if your Linux checkout/model paths differ.
+llama_server_bin: /home/robert/Apps/llama.cpp/build/bin/llama-server
+llama_cpp_dir: /home/robert/Apps/llama.cpp
+python_bin: /home/robert/Apps/llama.cpp/.venv/bin/python
+hf_models_dirs:
+  - /home/robert/models/HFModels
+log_dir: logs
+
+# This is the key the Mac controller already has configured for linux-2080ti.
+# Requests from the Mac controller to this Linux agent must send it as
+# X-Llama-Manager-Key.
+agent_api_key: PmvdbQ9L_6r_Iocv6v2m8nrJzWzMEzJuooWgnxDwoSvi0XIcMa0A_ldxoIIxTtxY
+
+# Agent heartbeat/registration back to the Mac mini controller.
+controller_url: http://192.168.1.104:9137
+node_name: linux-2080ti
+agent_url: http://192.168.1.120:9137
+heartbeat_interval_seconds: 30
+controller_registration_key_outbound: nEQ3hcwaTj7uQckiHG1L1qrEXR39whdabouSPvlAL-utI-inGASeU8IiRb6R8wKG
+
+# Enable only if this Linux box should claim controller jobs.
+agent_worker_enabled: false
+agent_worker_poll_interval_seconds: 2
+agent_worker_max_jobs: 1
+agent_worker_labels:
+  gpu: 2080ti
+  os: linux
+agent_worker_capacity:
+  gpu_count: 1
+
+models: {}
+
+# Optional local model example:
+# models:
+#   qwen-coder:
+#     path: /home/robert/models/HFModels/qwen-coder/model.gguf
+#     port: 8081
+#     ctx: 16384
+#     gpu_layers: 999
+#     host: 0.0.0.0
+#     reasoning: auto
+#     reasoning_budget: 2048
+#     extra_args: []
+#     supports_json_schema: false
+#     supports_grammar: false

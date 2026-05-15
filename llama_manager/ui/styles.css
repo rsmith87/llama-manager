@@ -290,6 +290,10 @@ td.path { max-width: 360px; color: var(--muted); font-family: var(--mono); font-
 .nodes-page-list { gap: 14px; max-height: calc(100vh - 260px); }
 .node { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: rgba(255,255,255,0.025); }
 .node-header { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 11px 12px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--line); }
+.node-header > div:first-child { min-width: 0; }
+.node-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex: 0 0 auto; }
+.node-full .node-header-actions { align-items: flex-start; }
+.node-edit-button { white-space: nowrap; }
 .node-url { margin-top: 4px; color: var(--muted); font-size: 12px; }
 .node .table-wrap { max-height: 190px; }
 .node-full .node-header { align-items: flex-start; }

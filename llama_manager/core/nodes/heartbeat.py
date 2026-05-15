@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -10,6 +11,7 @@ from llama_manager.core.config import AppConfig
 
 
 RequestFn = Callable[[str, str, dict[str, Any] | None], Awaitable[dict[str, Any]]]
+logger = logging.getLogger(__name__)
 
 
 class AgentHeartbeatClient:
@@ -30,7 +32,14 @@ class AgentHeartbeatClient:
         if not self.enabled() or self._task is not None:
             return
         self._stopped.clear()
-        await self._register()
+        try:
+            await self._register()
+        except Exception:
+            logger.warning(
+                "Agent registration failed for %s",
+                self.config.node_name,
+                exc_info=True,
+            )
         self._task = asyncio.create_task(self._run_loop())
 
     async def stop(self) -> None:
@@ -47,7 +56,14 @@ class AgentHeartbeatClient:
     async def _run_loop(self) -> None:
         interval = max(5, self.config.heartbeat_interval_seconds)
         while not self._stopped.is_set():
-            await self._heartbeat()
+            try:
+                await self._heartbeat()
+            except Exception:
+                logger.warning(
+                    "Agent heartbeat failed for %s",
+                    self.config.node_name,
+                    exc_info=True,
+                )
             try:
                 await asyncio.wait_for(self._stopped.wait(), timeout=interval)
             except asyncio.TimeoutError:

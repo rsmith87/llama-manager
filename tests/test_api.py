@@ -268,6 +268,39 @@ def test_controller_lists_nodes_and_proxies_model_start():
     assert response.json()["running"] is True
 
 
+def test_controller_updates_node_and_routes_to_new_url():
+    config = load_config(
+        {
+            "mode": "controller",
+            "node_heartbeat_timeout_seconds": 999999,
+            "nodes": {"win": {"url": "http://old-win:9000", "api_key": "old-key"}},
+        }
+    )
+    seen = []
+
+    async def fake_request(method, url, api_key, verify_tls):
+        seen.append((method, url, api_key, verify_tls))
+        return {"running": True, "name": "qwen"}
+
+    app = create_app(config=config, controller_request=fake_request)
+    client = TestClient(app)
+
+    response = client.put(
+        "/nodes/win",
+        json={"url": "http://new-win:9000", "api_key": "new-key", "verify_tls": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["url"] == "http://new-win:9000"
+    assert response.json()["verify_tls"] is False
+    assert response.json()["registration"] == "static"
+    assert client.get("/nodes").json()[0]["url"] == "http://new-win:9000"
+
+    proxy = client.post("/nodes/win/models/qwen/start")
+    assert proxy.status_code == 200
+    assert seen == [("POST", "http://new-win:9000/models/qwen/start", "new-key", False)]
+
+
 def test_controller_aggregates_models_from_nodes():
     config = load_config(
         {
@@ -1930,6 +1963,35 @@ def test_sensitive_routes_fail_closed_until_auth_is_bootstrapped():
 
     created = app.state.auth_store.create_key("admin", "admin")
     assert client.get("/models", headers={"X-Llama-Manager-Key": created["key"]}).status_code == 200
+
+
+def test_heartbeat_route_bypasses_ui_session_auth_on_controller():
+    app = create_app(
+        config=load_config(
+            {
+                "mode": "controller",
+                "nodes": {
+                    "linux-2080ti": {
+                        "url": "http://127.0.0.1:9137",
+                        "verify_tls": False,
+                    }
+                },
+            }
+        ),
+    )
+    client = RawTestClient(app)
+
+    # Bootstrapping auth currently enables UI-session checks for most routes.
+    # Heartbeats from remote agents should still be accepted.
+    created = app.state.auth_store.create_key("admin", "admin")
+    heartbeat = client.post("/nodes/linux-2080ti/heartbeat")
+    assert heartbeat.status_code == 200
+
+    nodes = client.get("/nodes", headers={"X-Llama-Manager-Key": created["key"]})
+    assert nodes.status_code == 200
+    payload = nodes.json()
+    assert payload[0]["name"] == "linux-2080ti"
+    assert payload[0]["heartbeat_fresh"] is True
 
 
 def test_auth_key_management_forbidden_for_non_admin_session():

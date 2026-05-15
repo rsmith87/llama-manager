@@ -3,6 +3,8 @@ import {
   filterNodes,
   mergeNodeInventory,
   nodeSummary,
+  nodeEditFormDefaults,
+  nodeEditMarkup,
   sortModelsForDisplay,
   suggestedGgufModelName,
 } from "../../llama_manager/ui/nodes_view.js";
@@ -98,5 +100,18 @@ describe("nodes view helpers", () => {
         { name: "gemma", favorite: true },
       ]).map((model) => model.name),
     ).toEqual(["gemma", "mistral", "qwen"]);
+  });
+
+  it("builds node edit defaults and only shows edit actions for full cards", () => {
+    expect(nodeEditFormDefaults({ name: "win", url: "http://win:9000", verify_tls: false })).toEqual({
+      name: "win",
+      url: "http://win:9000",
+      api_key: "",
+      verify_tls: false,
+    });
+    expect(nodeEditFormDefaults({ name: "mac", url: "http://mac:9000" }).verify_tls).toBe(true);
+    expect(nodeEditMarkup(nodes[0], { compact: false })).toContain('data-edit-node="mac-agent"');
+    expect(nodeEditMarkup(nodes[0], { compact: false })).toContain("Edit Node");
+    expect(nodeEditMarkup(nodes[0], { compact: true })).toBe("");
   });
 });

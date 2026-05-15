@@ -251,6 +251,24 @@
       </section>
     </dialog>
 
+    <dialog id="node-edit-modal" class="modal" aria-labelledby="node-edit-title">
+      <section class="modal-panel">
+        <div class="modal-header">
+          <div><span class="eyebrow">Node</span><h2 id="node-edit-title">Edit Node</h2></div>
+          <button type="button" class="icon-button" data-modal-close aria-label="Close node editor">×</button>
+        </div>
+        <div class="modal-content">
+          <input id="node-edit-name" type="hidden" />
+          <label><span class="label">URL</span><input id="node-edit-url" type="url" placeholder="http://192.168.1.10:9000" /></label>
+          <label><span class="label">API key</span><input id="node-edit-api-key" type="password" placeholder="leave blank for none" /></label>
+          <label class="checkbox-label"><input id="node-edit-verify-tls" type="checkbox" /><span>Verify TLS</span></label>
+          <div class="modal-actions">
+            <button id="node-edit-save-button" class="primary" type="button">Save Node</button>
+          </div>
+        </div>
+      </section>
+    </dialog>
+
     <dialog id="logs-modal" class="modal modal-wide" aria-labelledby="logs-modal-title">
       <section class="modal-panel">
         <div class="modal-header">
@@ -268,6 +286,6 @@
     </dialog>
 
     <div id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="/ui/app.js"></script>
+    <script type="module" src="/ui/app.js?v=nodes-edit-20260515"></script>
   </body>
 </html>

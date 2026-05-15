@@ -11,10 +11,12 @@ import {
 import {
   filterNodes,
   mergeNodeInventory,
+  nodeEditFormDefaults,
+  nodeEditMarkup,
   nodeSummary,
   sortModelsForDisplay,
   suggestedGgufModelName,
-} from "/ui/nodes_view.js";
+} from "/ui/nodes_view.js?v=nodes-edit-20260515";
 
 const state = {
   health: null,
@@ -1047,6 +1049,7 @@ function renderNodesPage() {
 
   body.innerHTML = nodes.map((node) => nodeCard(node, { compact: false })).join("");
   bindModelButtons(body);
+  bindNodeEditButtons(body);
 }
 
 function nodeCard(node, { compact }) {
@@ -1091,12 +1094,52 @@ function nodeCard(node, { compact }) {
         <div class="node-url">${escapeHtml(node.url)}</div>
         ${meta}
       </div>
-      <span class="status ${node.reachable ? "reachable" : "error"}">
-        ${node.reachable ? "reachable" : "offline"}
-      </span>
+      <div class="node-header-actions">
+        <span class="status ${node.reachable ? "reachable" : "error"}">
+          ${node.reachable ? "reachable" : "offline"}
+        </span>
+        ${nodeEditMarkup(node, { compact })}
+      </div>
     </div>
     ${models}
   </article>`;
+}
+
+function bindNodeEditButtons(root) {
+  root.querySelectorAll("button[data-edit-node]").forEach((button) => {
+    button.addEventListener("click", () => openNodeEditModal(button.dataset.editNode || ""));
+  });
+}
+
+function openNodeEditModal(nodeName) {
+  const node = state.nodeModels.find((item) => item.name === nodeName);
+  if (!node) {
+    showToast("Node is no longer available.");
+    return;
+  }
+  const defaults = nodeEditFormDefaults(node);
+  $("node-edit-name").value = defaults.name;
+  $("node-edit-url").value = defaults.url;
+  $("node-edit-api-key").value = defaults.api_key;
+  $("node-edit-verify-tls").checked = defaults.verify_tls;
+  $("node-edit-title").textContent = `Edit ${defaults.name}`;
+  openModal("node-edit-modal");
+}
+
+async function saveNodeEdit() {
+  const name = ($("node-edit-name")?.value || "").trim();
+  const url = ($("node-edit-url")?.value || "").trim();
+  const apiKey = $("node-edit-api-key")?.value || "";
+  const verifyTls = Boolean($("node-edit-verify-tls")?.checked);
+  if (!name || !url) return showToast("Enter a node URL.");
+  await api(`/nodes/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ url, api_key: apiKey.trim() || null, verify_tls: verifyTls }),
+  });
+  closeModal($("node-edit-modal"));
+  await refreshNodesPageData();
+  showToast(`Updated ${name}`);
 }
 
 function modelRow(model, nodeName = null) {
@@ -2547,6 +2590,7 @@ $("audit-my-actions-button")?.addEventListener("click", applyMyActionsFilter);
   $(id)?.addEventListener(id === "nodes-filter-name" ? "input" : "change", renderNodesPage);
 });
 $("nodes-refresh-button")?.addEventListener("click", () => void refreshNodesPageData());
+$("node-edit-save-button")?.addEventListener("click", () => void saveNodeEdit().catch((e) => showToast(e.message)));
 $("keys-create-button")?.addEventListener("click", () => void createAuthKey().catch((e) => showToast(e.message)));
 $("keys-refresh-button")?.addEventListener("click", () => void refreshAuthKeys());
 window.addEventListener("hashchange", () => setActivePage(window.location.hash.slice(1)));

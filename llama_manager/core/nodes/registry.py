@@ -27,11 +27,12 @@ class NodeRegistry:
         self._request = request or self._default_request
         self._store = store
         self._dynamic_nodes: dict[str, NodeConfig] = {}
+        self._node_overrides: dict[str, NodeConfig] = {}
         self._heartbeats: dict[str, str] = {}
         self._load_state()
 
     def list_nodes(self) -> list[dict[str, str]]:
-        nodes = {**self.config.nodes, **self._dynamic_nodes}
+        nodes = {**self.config.nodes, **self._node_overrides, **self._dynamic_nodes}
         return [self._node_payload(name, node)
             for name, node in sorted(nodes.items())
         ]
@@ -41,6 +42,7 @@ class NodeRegistry:
         return {
             "name": name,
             "url": node.url,
+            "verify_tls": node.verify_tls,
             "controller_config_source": self.config.config_source,
             "registration": "dynamic" if name in self._dynamic_nodes else "static",
             "last_heartbeat": heartbeat,
@@ -75,9 +77,27 @@ class NodeRegistry:
         return await self._request(method, url, node.api_key, node.verify_tls)
 
     def register_node(self, name: str, node: NodeConfig) -> None:
-        self._dynamic_nodes[name] = node
+        if name in self.config.nodes:
+            configured = self.config.nodes[name]
+            self._node_overrides[name] = NodeConfig(
+                url=node.url,
+                api_key=node.api_key if node.api_key is not None else configured.api_key,
+                verify_tls=configured.verify_tls if node.verify_tls is True else node.verify_tls,
+            )
+            self._dynamic_nodes.pop(name, None)
+        else:
+            self._dynamic_nodes[name] = node
         self.record_heartbeat(name)
         self._save_state()
+
+    def update_node(self, name: str, node: NodeConfig) -> dict[str, Any]:
+        self._get_node(name)
+        if name in self._dynamic_nodes:
+            self._dynamic_nodes[name] = node
+        else:
+            self._node_overrides[name] = node
+        self._save_state()
+        return self._node_payload(name, node)
 
     def record_heartbeat(self, name: str) -> None:
         self._get_node(name)
@@ -88,6 +108,8 @@ class NodeRegistry:
         return self._get_node(name)
 
     def _get_node(self, name: str) -> NodeConfig:
+        if name in self._node_overrides:
+            return self._node_overrides[name]
         if name in self.config.nodes:
             return self.config.nodes[name]
         if name in self._dynamic_nodes:
@@ -115,8 +137,24 @@ class NodeRegistry:
             loaded: dict[str, NodeConfig] = {}
             for name, value in raw_nodes.items():
                 if isinstance(name, str) and isinstance(value, dict):
-                    loaded[name] = NodeConfig.model_validate(value)
+                    if name in self.config.nodes:
+                        configured = self.config.nodes[name]
+                        registered = NodeConfig.model_validate(value)
+                        self._node_overrides[name] = NodeConfig(
+                            url=registered.url,
+                            api_key=registered.api_key if registered.api_key is not None else configured.api_key,
+                            verify_tls=configured.verify_tls if registered.verify_tls is True else registered.verify_tls,
+                        )
+                    else:
+                        loaded[name] = NodeConfig.model_validate(value)
             self._dynamic_nodes = loaded
+        raw_overrides = data.get("node_overrides", {})
+        if isinstance(raw_overrides, dict):
+            overrides: dict[str, NodeConfig] = {}
+            for name, value in raw_overrides.items():
+                if isinstance(name, str) and isinstance(value, dict):
+                    overrides[name] = NodeConfig.model_validate(value)
+            self._node_overrides = overrides
         raw_heartbeats = data.get("heartbeats", {})
         if isinstance(raw_heartbeats, dict):
             self._heartbeats = {
@@ -131,6 +169,10 @@ class NodeRegistry:
                 "dynamic_nodes": {
                     name: node.model_dump(mode="json")
                     for name, node in self._dynamic_nodes.items()
+                },
+                "node_overrides": {
+                    name: node.model_dump(mode="json")
+                    for name, node in self._node_overrides.items()
                 },
                 "heartbeats": self._heartbeats,
             }

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from llama_manager.api.dependencies import get_node_registry
-from llama_manager.api.routes.nodes.common import NodeRegistrationRequest
+from llama_manager.api.routes.nodes.common import NodeRegistrationRequest, NodeUpdateRequest
 from llama_manager.core.config import NodeConfig
 from llama_manager.core.nodes.registry import NodeRegistry
 
@@ -29,6 +29,21 @@ def register_node(
         NodeConfig(url=payload.url, api_key=payload.api_key, verify_tls=payload.verify_tls),
     )
     return {"ok": True, "name": payload.name}
+
+
+@router.put("/nodes/{node}")
+def update_node(
+    node: str,
+    payload: NodeUpdateRequest,
+    registry: NodeRegistry = Depends(get_node_registry),
+):
+    try:
+        return registry.update_node(
+            node,
+            NodeConfig(url=payload.url, api_key=payload.api_key, verify_tls=payload.verify_tls),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/nodes/{node}/heartbeat")

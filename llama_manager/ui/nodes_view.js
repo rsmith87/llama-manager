@@ -44,3 +44,25 @@ export function sortModelsForDisplay(models) {
     return String(a?.name || "").localeCompare(String(b?.name || ""));
   });
 }
+
+export function nodeEditFormDefaults(node) {
+  return {
+    name: String(node?.name || ""),
+    url: String(node?.url || ""),
+    api_key: "",
+    verify_tls: node?.verify_tls ?? true,
+  };
+}
+
+export function nodeEditMarkup(node, { compact } = {}) {
+  if (compact) return "";
+  return `<button class="primary node-edit-button" type="button" data-edit-node="${escapeAttribute(node?.name || "")}">Edit Node</button>`;
+}
+
+function escapeAttribute(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}

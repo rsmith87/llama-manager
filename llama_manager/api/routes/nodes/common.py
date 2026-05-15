@@ -13,6 +13,12 @@ class NodeRegistrationRequest(BaseModel):
     registration_key: str | None = None
 
 
+class NodeUpdateRequest(BaseModel):
+    url: str
+    api_key: str | None = None
+    verify_tls: bool = True
+
+
 def platform_from_path(path: str | None) -> str:
     if not path:
         return "unknown"

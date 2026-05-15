@@ -9,6 +9,16 @@ import yaml
 from llama_manager.core.config.models import AppConfig
 
 
+def _expand_env_vars(value: Any) -> Any:
+    if isinstance(value, str):
+        return os.path.expandvars(value)
+    if isinstance(value, list):
+        return [_expand_env_vars(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _expand_env_vars(item) for key, item in value.items()}
+    return value
+
+
 def load_config(source: str | Path | dict[str, Any] | None = None) -> AppConfig:
     if source is None:
         source = os.getenv("LLAMA_MANAGER_CONFIG")
@@ -40,6 +50,8 @@ def load_config(source: str | Path | dict[str, Any] | None = None) -> AppConfig:
     mode_override = os.getenv("LLAMA_MANAGER_MODE")
     if mode_override:
         data = {**data, "mode": mode_override}
+
+    data = _expand_env_vars(data)
 
     return AppConfig.model_validate({**data, "config_source": config_source})
 

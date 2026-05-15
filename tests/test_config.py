@@ -36,6 +36,42 @@ nodes:
     assert config.node_heartbeat_timeout_seconds == 90
 
 
+def test_load_config_expands_env_var_placeholders_in_nested_values(tmp_path, monkeypatch):
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(
+        """
+mode: controller
+agent_api_key: ${AGENT_API_KEY}
+controller_registration_key: prefix-${JOIN_KEY}
+hf_models_dirs:
+  - ${MODEL_ROOT}
+nodes:
+  linux:
+    url: ${LINUX_AGENT_URL}
+    api_key: ${LINUX_AGENT_KEY}
+models:
+  gemma:
+    path: ${MODEL_ROOT}/gemma.gguf
+    port: 8080
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("AGENT_API_KEY", "agent-secret")
+    monkeypatch.setenv("JOIN_KEY", "join-secret")
+    monkeypatch.setenv("MODEL_ROOT", "/models")
+    monkeypatch.setenv("LINUX_AGENT_URL", "http://linux:9137")
+    monkeypatch.setenv("LINUX_AGENT_KEY", "node-secret")
+
+    config = load_config(config_file)
+
+    assert config.agent_api_key == "agent-secret"
+    assert config.controller_registration_key == "prefix-join-secret"
+    assert config.hf_models_dirs == [Path("/models")]
+    assert config.nodes["linux"].url == "http://linux:9137"
+    assert config.nodes["linux"].api_key == "node-secret"
+    assert config.models["gemma"].path == "/models/gemma.gguf"
+
+
 def test_build_llama_server_command_uses_configured_model_options():
     config = load_config(
         {

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HOST="${LLAMA_MANAGER_HOST:-127.0.0.1}"
+HOST="${LLAMA_MANAGER_HOST:-0.0.0.0}"
 PORT="${LLAMA_MANAGER_PORT:-9137}"
 DEFAULT_CONFIG="$ROOT_DIR/config.example.yaml"
 if [[ -f "$ROOT_DIR/config.yaml" ]]; then

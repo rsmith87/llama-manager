@@ -42,6 +42,18 @@ LLAMA_MANAGER_PORT=9137
 LLAMA_MANAGER_CONFIG=./config.yaml if present, otherwise ./config.example.yaml
 ```
 
+Linux agent smoke test for the `linux-2080ti` setup:
+
+```bash
+export LLAMA_MANAGER_AGENT_API_KEY=...
+export LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND=...
+# Required if the controller protects GET /nodes with an admin/API key:
+export LLAMA_MANAGER_CONTROLLER_API_KEY=...
+scripts/linux_agent_smoke.py --config linux-agent.config.example.yaml
+```
+
+The smoke test validates the Linux agent config and runtime paths, starts the agent with that config, checks the agent `/health`, and waits until the controller lists `linux-2080ti` with a fresh heartbeat. Add `--stop-after-check` if you want the script to stop the agent after a successful run.
+
 ## Configuration
 
 Set `LLAMA_MANAGER_CONFIG` to a YAML file path. Set `LLAMA_MANAGER_MODE` to override the mode without editing the file.
@@ -82,6 +94,14 @@ uv run python -m llama_manager.auth --config config.yaml create-admin robert
 The command stores a hashed key in `log_dir/auth_store.db` and prints the raw API key once. Use that key in the UI login form, or send it as `X-Llama-Manager-Key` for API requests. To create more keys later, log in as an admin and use the auth key management UI/API.
 
 There is no built-in `dev` login fallback. For local development, create a throwaway admin key with the same command.
+
+For static shared secrets in agent/controller config, generate a strong URL-safe value with:
+
+```bash
+scripts/generate_api_key.py
+```
+
+Use the printed value for matching config fields such as `agent_api_key`, `nodes.<name>.api_key`, `controller_registration_key`, and `controller_registration_key_outbound`.
 
 ### Agent Config
 

@@ -50,3 +50,30 @@ class ChatSessionOrm(Base):
     __table_args__ = (
         Index("idx_chat_sessions_updated_at", "updated_at"),
     )
+
+
+class ModelDownloadOrm(Base):
+    __tablename__ = "model_downloads"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    repo_id: Mapped[str] = mapped_column(Text, nullable=False)
+    revision: Mapped[str | None] = mapped_column(Text, nullable=True)
+    local_path: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    started_at: Mapped[str | None] = mapped_column(Text, nullable=True)
+    finished_at: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bytes_downloaded: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    bytes_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pid: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    returncode: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    command: Mapped[str] = mapped_column(Text, nullable=False)
+    log_path: Mapped[str] = mapped_column(Text, nullable=False)
+    error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    triggered_by: Mapped[str] = mapped_column(Text, nullable=False, default="unknown", server_default="unknown")
+    created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[str] = mapped_column(Text, nullable=False)
+
+    __table_args__ = (
+        Index("idx_model_downloads_created_at", "created_at"),
+        Index("idx_model_downloads_status", "status"),
+    )

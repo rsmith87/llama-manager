@@ -1,4 +1,4 @@
-from llama_manager.core.persistence.models.app_state import ApiKeyOrm, AuditEventOrm, ChatSessionOrm
+from llama_manager.core.persistence.models.app_state import ApiKeyOrm, AuditEventOrm, ChatSessionOrm, ModelDownloadOrm
 from llama_manager.core.persistence.models.orchestration import (
     ArtifactOrm,
     ControllerLeaseOrm,
@@ -15,6 +15,7 @@ __all__ = [
     "AuditEventOrm",
     "ChatSessionOrm",
     "ControllerLeaseOrm",
+    "ModelDownloadOrm",
     "JobAttemptOrm",
     "JobEventOrm",
     "JobOrm",

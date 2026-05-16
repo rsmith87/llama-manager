@@ -15,6 +15,7 @@ from llama_manager.api.routes import (
     auth,
     chat,
     conversions,
+    downloads,
     health,
     jobs,
     library,
@@ -22,6 +23,7 @@ from llama_manager.api.routes import (
     node_work,
     nodes,
     quantizations,
+    settings,
     ui,
 )
 from llama_manager.core.config import AppConfig, load_config
@@ -29,6 +31,7 @@ from llama_manager.core.chat.proxy import ChatProxy
 from llama_manager.core.nodes.heartbeat import AgentHeartbeatClient
 from llama_manager.core.model_assets.conversions import ConversionManager
 from llama_manager.core.model_assets.library import GgufLibrary
+from llama_manager.core.model_assets.downloads import DownloadManager
 from llama_manager.core.nodes.registry import NodeRegistry
 from llama_manager.core.runtime.process_manager import ProcessManager
 from llama_manager.core.model_assets.quantizations import QuantizationManager
@@ -41,6 +44,7 @@ from llama_manager.core.persistence.chat_session_store_orm import ChatSessionSto
 from llama_manager.core.persistence.audit_store_orm import AuditStoreOrm
 from llama_manager.core.persistence.auth_store_orm import AuthStoreOrm
 from llama_manager.core.persistence.db_infra import resolve_persistence_urls
+from llama_manager.core.persistence.model_download_store_orm import ModelDownloadStoreOrm
 from llama_manager.core.app.auth_policy import (
     is_viewer_forbidden,
     should_bypass_middleware,
@@ -112,6 +116,8 @@ def _configure_app_state(
     )
     auth_urls = resolve_persistence_urls(app_config)
     app.state.chat_session_store = ChatSessionStoreOrm(db_url=auth_urls.chat_sessions)
+    app.state.model_download_store = ModelDownloadStoreOrm(db_url=auth_urls.chat_sessions)
+    app.state.download_manager = DownloadManager(app_config, app.state.model_download_store)
     app.state.audit_store = AuditStoreOrm(db_url=auth_urls.audit)
     app.state.auth_store = AuthStoreOrm(db_url=auth_urls.auth)
     app.state.heartbeat_client = AgentHeartbeatClient(app_config, request=heartbeat_request)
@@ -132,7 +138,9 @@ def _register_routers(app: FastAPI, app_config: AppConfig) -> None:
     app.include_router(models.router)
     app.include_router(chat.router)
     app.include_router(conversions.router)
+    app.include_router(downloads.router)
     app.include_router(quantizations.router)
+    app.include_router(settings.router)
     app.include_router(library.router)
     app.include_router(nodes.router)
     app.include_router(audit.router)

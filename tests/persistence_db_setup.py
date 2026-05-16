@@ -6,7 +6,7 @@ from sqlalchemy import Column, MetaData, String, Table, delete
 
 from llama_manager.core.persistence.alembic_config import Base
 from llama_manager.core.persistence.db_infra import create_persistence_engine, create_session_factory, session_scope, sqlite_url_for_path
-from llama_manager.core.persistence.models.app_state import ApiKeyOrm, AuditEventOrm, ChatSessionOrm
+from llama_manager.core.persistence.models.app_state import ApiKeyOrm, AuditEventOrm, ChatSessionOrm, ModelDownloadOrm
 from llama_manager.core.persistence.models.orchestration import (
     ArtifactOrm,
     ControllerLeaseOrm,
@@ -22,7 +22,7 @@ TARGET_REVISIONS = {
     "controller": "20260513_0001",
     "auth": "20260513_0002",
     "audit": "20260513_0003",
-    "chat_sessions": "20260513_0004",
+    "chat_sessions": "20260515_0005",
 }
 LATEST_REVISION = TARGET_REVISIONS["chat_sessions"]
 
@@ -54,7 +54,7 @@ def prepare_audit_db(db_path: Path, revision: str = TARGET_REVISIONS["audit"]) -
 
 
 def prepare_chat_sessions_db(db_path: Path, revision: str = TARGET_REVISIONS["chat_sessions"]) -> None:
-    _write_schema(db_path, [ChatSessionOrm.__table__], revision)
+    _write_schema(db_path, [ChatSessionOrm.__table__, ModelDownloadOrm.__table__], revision)
 
 
 def prepare_controller_db(db_path: Path, revision: str = TARGET_REVISIONS["controller"]) -> None:

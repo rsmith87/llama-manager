@@ -110,6 +110,10 @@ class ProcessManager:
         with log_path.open("r", encoding="utf-8", errors="replace") as handle:
             return "".join(handle.readlines()[-requested:])
 
+    def log_path(self, name: str) -> Path:
+        self._get_model(name)
+        return self._log_path(name)
+
     def _get_model(self, name: str) -> ModelConfig:
         try:
             return self.config.models[name]

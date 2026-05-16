@@ -22,10 +22,12 @@
           <button class="nav-button" type="button" data-page-target="nodes"><span class="nav-icon" data-icon="nodes"></span><span>Nodes</span></button>
           <button class="nav-button" type="button" data-page-target="gguf-library"><span class="nav-icon" data-icon="library"></span><span>GGUF Library</span></button>
           <button class="nav-button" type="button" data-page-target="hf-to-gguf"><span class="nav-icon" data-icon="convert"></span><span>HF to GGUF</span></button>
+          <button class="nav-button" type="button" data-page-target="hf-downloads"><span class="nav-icon" data-icon="download"></span><span>HF Downloads</span></button>
           <button class="nav-button" type="button" data-page-target="quantization"><span class="nav-icon" data-icon="quant"></span><span>Quantization</span></button>
           <button class="nav-button" type="button" data-page-target="controller-ops"><span class="nav-icon" data-icon="controller"></span><span>Controller Ops</span></button>
           <button class="nav-button" type="button" data-page-target="embeddings"><span class="nav-icon" data-icon="embed"></span><span>Embeddings</span></button>
           <button class="nav-button" type="button" data-page-target="audit"><span class="nav-icon" data-icon="audit"></span><span>Audit</span></button>
+          <button class="nav-button" type="button" data-page-target="settings"><span class="nav-icon" data-icon="settings"></span><span>Settings</span></button>
           <button id="open-logs-button" class="nav-button modal-nav-button" type="button" aria-haspopup="dialog"><span class="nav-icon" data-icon="logs"></span><span>Logs</span><span class="modal-indicator" data-icon="modal"></span></button>
         </nav>
         <div class="sidebar-footer">
@@ -75,12 +77,7 @@
                 <div><span class="eyebrow">This agent</span><h2>Local Models</h2></div>
                 <button type="button" class="ghost-button" data-page-target="gguf-library">Add Model</button>
               </div>
-              <div class="table-wrap dense-table">
-                <table>
-                  <thead><tr><th>Name</th><th>Status</th><th>Port</th><th>PID</th><th>Path</th><th>Source</th><th>Actions</th></tr></thead>
-                  <tbody id="models-body"><tr><td colspan="7" class="empty">Loading models...</td></tr></tbody>
-                </table>
-              </div>
+              <div id="models-body" class="model-cards"><p class="empty">Loading models...</p></div>
             </section>
 
             <section class="panel dashboard-nodes" id="nodes-panel">
@@ -180,12 +177,22 @@
 
           <section class="page table-page" id="page-gguf-library" data-page="gguf-library">
             <div class="page-heading"><div><span class="eyebrow">Files</span><h2>GGUF Library</h2></div><span class="muted">Discovered files you can add as runnable models</span></div>
-            <div class="library-layout"><aside class="panel side-panel"><div class="panel-title"><h2>Add Settings</h2></div><div class="library-controls"><label><span class="label">Model name</span><input id="library-model-name" type="text" placeholder="select a GGUF file" /></label><label><span class="label">Next port</span><input id="library-port" type="number" min="1" max="65535" step="1" value="8080" /></label><label><span class="label">Context</span><input id="library-ctx" type="number" min="512" max="262144" step="512" value="4096" /></label><label><span class="label">GPU layers</span><input id="library-gpu-layers" type="number" min="0" max="999" step="1" value="0" /></label><label><span class="label">Reasoning</span><select id="library-reasoning"><option value="auto">Auto</option><option value="off">Off</option><option value="on">On</option></select></label><label><span class="label">Think budget</span><input id="library-reasoning-budget" type="number" min="-1" max="8192" step="1" value="2048" /></label></div></aside><section class="panel"><div class="table-wrap"><table><thead><tr><th>Directory</th><th>File</th><th>Size</th><th>Status</th><th>Path</th><th>Actions</th></tr></thead><tbody id="library-body"><tr><td colspan="6" class="empty">Loading GGUF files...</td></tr></tbody></table></div></section></div>
+            <section class="panel"><div id="library-body" class="library-sections"><p class="empty">Loading GGUF files...</p></div></section>
           </section>
 
           <section class="page table-page" id="page-hf-to-gguf" data-page="hf-to-gguf">
             <div class="page-heading"><div><span class="eyebrow">Conversion</span><h2>HF To GGUF</h2></div><span class="muted">Writes GGUF inside each HF model folder</span></div>
             <section class="panel"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Status</th><th>GGUF</th><th>Path</th><th>Output</th><th>Python</th><th>Actions</th></tr></thead><tbody id="conversions-body"><tr><td colspan="7" class="empty">Loading HF models...</td></tr></tbody></table></div></section>
+          </section>
+          <section class="page table-page" id="page-hf-downloads" data-page="hf-downloads">
+            <div class="page-heading"><div><span class="eyebrow">Acquisition</span><h2>HF Downloads</h2></div><span class="muted">One-click model download + history</span></div>
+            <form id="download-form" class="controller-filters filter-bar">
+              <input id="download-repo-id" type="text" placeholder="owner/model" />
+              <input id="download-revision" type="text" placeholder="revision (optional)" />
+              <button id="download-start-button" type="submit">Download</button>
+              <button id="download-refresh-button" type="button">Refresh</button>
+            </form>
+            <section class="panel"><div class="table-wrap"><table><thead><tr><th>Repo</th><th>Status</th><th>Started</th><th>Finished</th><th>Path</th><th>By</th><th>Actions</th></tr></thead><tbody id="downloads-body"><tr><td colspan="7" class="empty">Loading downloads...</td></tr></tbody></table></div></section>
           </section>
 
           <section class="page table-page" id="page-quantization" data-page="quantization">
@@ -202,6 +209,71 @@
               <article class="controller-card"><h3>Retention & Archive</h3><div class="controller-actions"><button id="controller-export-button" type="button">Run Archive Export</button></div><div id="controller-retention" class="detail-json tall-json">Loading...</div></article>
             </div>
           </section>
+
+          <section class="page table-page" id="page-settings" data-page="settings">
+            <div class="page-heading"><div><span class="eyebrow">Config</span><h2>Settings</h2></div><span class="muted">Generate a starter config.yaml</span></div>
+            <section class="panel settings-panel">
+              <div class="settings-tabs" role="tablist" aria-label="Settings Sections">
+                <button type="button" class="settings-tab active" data-settings-pane-target="config" role="tab" aria-selected="true">Config</button>
+                <button type="button" class="settings-tab" data-settings-pane-target="api-keys" role="tab" aria-selected="false">API Keys</button>
+                <button type="button" class="settings-tab" data-settings-pane-target="outputs" role="tab" aria-selected="false">Outputs</button>
+              </div>
+
+              <section class="settings-pane active" data-settings-pane="config" role="tabpanel">
+                <div class="controller-filters settings-filters">
+                  <label><span class="label">Log Directory</span><input id="settings-log-dir" type="text" placeholder="./logs" value="./logs" /></label>
+                  <label><span class="label">Mode</span><select id="settings-mode"><option value="single">single</option><option value="controller">controller</option><option value="agent">agent</option></select></label>
+                  <label><span class="label">Controller URL</span><input id="settings-controller-url" type="text" placeholder="http://127.0.0.1:9137" /></label>
+                </div>
+                <div class="controller-filters settings-filters">
+                  <label><span class="label">Controller API Key (Optional)</span><input id="settings-controller-api-key" type="password" placeholder="controller_api_key" /></label>
+                  <label><span class="label">Registration Key (Agent)</span><input id="settings-registration-key" type="password" placeholder="controller_registration_key_outbound" /></label>
+                  <label><span class="label">Agent API Key (Controller Nodes)</span><input id="settings-agent-api-key" type="password" placeholder="agent api_key" /></label>
+                </div>
+                <div class="controller-filters settings-filters">
+                  <label><span class="label">Agent Name</span><input id="settings-agent-name" type="text" placeholder="local-agent" value="local-agent" /></label>
+                  <label><span class="label">Agent URL</span><input id="settings-agent-url" type="text" placeholder="http://127.0.0.1:9000" value="http://127.0.0.1:9000" /></label>
+                  <button id="settings-build-config" class="primary" type="button">Generate config.yaml</button>
+                </div>
+              </section>
+
+              <section class="settings-pane" data-settings-pane="api-keys" role="tabpanel" hidden>
+                <div class="controller-filters settings-filters">
+                  <label><span class="label">Prefix</span><input id="settings-key-prefix" type="text" value="llm" /></label>
+                  <label><span class="label">Random Bytes</span><input id="settings-key-bytes" type="number" min="16" max="128" step="1" value="32" /></label>
+                  <label><span class="label">Count</span><input id="settings-key-count" type="number" min="1" max="20" step="1" value="1" /></label>
+                </div>
+                <div class="controller-filters settings-filters">
+                  <label><span class="label">Apply To</span><select id="settings-key-apply-target"><option value="controller">Controller API Key</option><option value="registration">Registration Key (Agent)</option><option value="agent">Agent API Key</option></select></label>
+                  <button id="settings-generate-key" type="button">Generate with Script</button>
+                  <button id="settings-apply-generated-key" type="button">Apply First Key</button>
+                </div>
+                <pre id="settings-generated-keys-output" class="detail-json">No generated keys yet.</pre>
+              </section>
+
+              <section class="settings-pane" data-settings-pane="outputs" role="tabpanel" hidden>
+                <div class="settings-tabs" role="tablist" aria-label="Settings Outputs">
+                  <button type="button" class="settings-tab active" data-settings-tab-target="config" role="tab" aria-selected="true">Config YAML</button>
+                  <button type="button" class="settings-tab" data-settings-tab-target="exports" role="tab" aria-selected="false">Env Exports</button>
+                </div>
+                <section class="settings-tab-panel active" data-settings-tab-panel="config" role="tabpanel">
+                  <div class="stacked-actions">
+                    <button id="settings-copy-config" type="button">Copy YAML</button>
+                    <button id="settings-download-config" type="button">Download config.yaml</button>
+                  </div>
+                  <pre id="settings-config-output" class="detail-json tall-json"># Fill fields and click "Generate config.yaml"</pre>
+                </section>
+                <section class="settings-tab-panel" data-settings-tab-panel="exports" role="tabpanel" hidden>
+                  <div class="stacked-actions">
+                    <button id="settings-copy-exports" type="button">Copy Env Exports</button>
+                    <button id="settings-download-exports" type="button">Download env.sh</button>
+                  </div>
+                  <pre id="settings-exports-output" class="detail-json"># Env exports will appear here</pre>
+                </section>
+              </section>
+            </section>
+            </section>
+          </section>
         </main>
       </div>
     </div>
@@ -212,13 +284,13 @@
         <div class="drawer-header"><div><span class="eyebrow">Advanced</span><h2 id="chat-advanced-title">Chat Settings</h2></div><button type="button" class="icon-button" data-drawer-close aria-label="Close advanced settings">×</button></div>
         <div class="drawer-content">
           <div class="chat-controls drawer-grid">
-            <label><span class="label">Temperature</span><input id="chat-temperature" type="number" min="0" max="2" step="0.1" value="0.7" /></label>
-            <label><span class="label">Max tokens</span><input id="chat-max-tokens" type="number" min="1" max="8192" step="1" value="512" /></label>
-            <label><span class="label">Top p</span><input id="chat-top-p" type="number" min="0" max="1" step="0.01" value="1.0" /></label>
-            <label><span class="label">Top k</span><input id="chat-top-k" type="number" min="0" max="200" step="1" value="40" /></label>
-            <label><span class="label">Min p</span><input id="chat-min-p" type="number" min="0" max="1" step="0.01" value="0.0" /></label>
-            <label><span class="label">Repeat penalty</span><input id="chat-repeat-penalty" type="number" min="0" max="2" step="0.01" value="1.1" /></label>
-            <label><span class="label">Seed</span><input id="chat-seed" type="number" step="1" value="-1" /></label>
+            <label><span class="label">Temperature: <span id="chat-temperature-value">0.7</span></span><input id="chat-temperature" type="range" min="0" max="2" step="0.01" value="0.7" /></label>
+            <label><span class="label">Max tokens: <span id="chat-max-tokens-value">512</span></span><input id="chat-max-tokens" type="range" min="1" max="8192" step="1" value="512" /></label>
+            <label><span class="label">Top p: <span id="chat-top-p-value">1.00</span></span><input id="chat-top-p" type="range" min="0" max="1" step="0.01" value="1.0" /></label>
+            <label><span class="label">Top k: <span id="chat-top-k-value">40</span></span><input id="chat-top-k" type="range" min="0" max="200" step="1" value="40" /></label>
+            <label><span class="label">Min p: <span id="chat-min-p-value">0.00</span></span><input id="chat-min-p" type="range" min="0" max="1" step="0.01" value="0.0" /></label>
+            <label><span class="label">Repeat penalty: <span id="chat-repeat-penalty-value">1.10</span></span><input id="chat-repeat-penalty" type="range" min="0" max="2" step="0.01" value="1.1" /></label>
+            <label><span class="label">Seed: <span id="chat-seed-value">-1</span></span><input id="chat-seed" type="range" min="-1" max="1000000" step="1" value="-1" /></label>
             <label><span class="label">Stop (comma)</span><input id="chat-stop" type="text" placeholder="</s>,User:" /></label>
             <label><span class="label">Structured mode</span><select id="chat-structured-mode"><option value="none">None</option><option value="json_schema">JSON Schema</option><option value="grammar">Grammar</option></select></label>
             <label class="checkbox-label"><input id="chat-reasoning" type="checkbox" /><span>Reasoning</span></label>
@@ -243,8 +315,17 @@
         </div>
         <div class="modal-content">
           <div id="gguf-detail-body" class="detail-list"></div>
+          <div class="library-controls">
+            <label><span class="label">Model name</span><input id="library-model-name" type="text" placeholder="select a GGUF file" /></label>
+            <label><span class="label">Next port</span><input id="library-port" type="number" min="1" max="65535" step="1" value="8080" /></label>
+            <label><span class="label">Context</span><input id="library-ctx" type="number" min="512" max="262144" step="512" value="4096" /></label>
+            <label><span class="label">GPU layers</span><input id="library-gpu-layers" type="number" min="0" max="999" step="1" value="0" /></label>
+            <label><span class="label">Reasoning</span><select id="library-reasoning"><option value="auto">Auto</option><option value="off">Off</option><option value="on">On</option></select></label>
+            <label><span class="label">Think budget</span><input id="library-reasoning-budget" type="number" min="-1" max="8192" step="1" value="2048" /></label>
+          </div>
           <div class="modal-actions">
             <button id="gguf-detail-add-button" class="primary" type="button">Add Model</button>
+            <button id="gguf-detail-remove-button" type="button">Remove Model</button>
             <button id="gguf-detail-delete-button" class="danger" type="button">Delete GGUF</button>
           </div>
         </div>

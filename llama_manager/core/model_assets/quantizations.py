@@ -67,6 +67,10 @@ class QuantizationManager:
         with log_path.open("r", encoding="utf-8", errors="replace") as handle:
             return "".join(handle.readlines()[-requested:])
 
+    def log_path(self, file_id: str) -> Path:
+        self.status(file_id)
+        return self._log_path(file_id)
+
     def file_id(self, path: Path) -> str:
         return hashlib.sha256(str(path).encode("utf-8")).hexdigest()[:16]
 

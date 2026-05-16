@@ -10,6 +10,7 @@ from llama_manager.core.persistence.alembic_config import (
 )
 from llama_manager.core.persistence.auth_store_orm import AuthStoreOrm
 from llama_manager.core.persistence.chat_session_store_orm import ChatSessionStoreOrm
+from llama_manager.core.persistence.model_download_store_orm import ModelDownloadStoreOrm
 from llama_manager.core.persistence.dto.commands import (
     AddArtifactCommand,
     CreateApiKeyCommand,
@@ -45,6 +46,7 @@ from llama_manager.core.persistence.models import (
     ArtifactOrm,
     AuditEventOrm,
     ChatSessionOrm,
+    ModelDownloadOrm,
     ControllerLeaseOrm,
     JobAttemptOrm,
     JobEventOrm,
@@ -66,12 +68,14 @@ __all__ = [
     "AuditStoreOrm",
     "AuthStoreOrm",
     "ChatSessionStoreOrm",
+    "ModelDownloadStoreOrm",
     "Base",
     "ApiKeyOrm",
     "ArtifactOrm",
     "AuditEventOrm",
     "ChatSessionOrm",
     "ControllerLeaseOrm",
+    "ModelDownloadOrm",
     "DB_TARGETS",
     "JobAttemptOrm",
     "JobEventOrm",

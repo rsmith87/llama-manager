@@ -37,7 +37,7 @@ TARGET_TABLES: dict[str, tuple[str, ...]] = {
     ),
     "auth": ("api_keys",),
     "audit": ("audit_events",),
-    "chat_sessions": ("chat_sessions",),
+    "chat_sessions": ("chat_sessions", "model_downloads"),
 }
 
 

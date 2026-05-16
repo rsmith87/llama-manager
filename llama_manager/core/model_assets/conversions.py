@@ -66,6 +66,10 @@ class ConversionManager:
         with log_path.open("r", encoding="utf-8", errors="replace") as handle:
             return "".join(handle.readlines()[-requested:])
 
+    def log_path(self, name: str) -> Path:
+        self.status(name)
+        return self._log_path(name)
+
     def _status_for_path(self, name: str, model_path: Path) -> dict[str, object]:
         process = self._processes.get(name)
         returncode = process.poll() if process is not None else None

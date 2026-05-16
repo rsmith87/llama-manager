@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from llama_manager.core.chat.proxy import ChatProxy
     from llama_manager.core.model_assets.conversions import ConversionManager
     from llama_manager.core.model_assets.library import GgufLibrary
+    from llama_manager.core.model_assets.downloads import DownloadManager
     from llama_manager.core.model_assets.quantizations import QuantizationManager
     from llama_manager.core.nodes.registry import NodeRegistry
     from llama_manager.core.orchestration.orchestrator import Orchestrator
@@ -43,6 +44,10 @@ def get_chat_proxy(request: Request) -> ChatProxy:
 
 def get_gguf_library(request: Request) -> GgufLibrary:
     return request.app.state.gguf_library
+
+
+def get_download_manager(request: Request) -> DownloadManager:
+    return request.app.state.download_manager
 
 
 def get_chat_session_store(request: Request) -> Any:

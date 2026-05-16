@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from llama_manager.api.dependencies import get_process_manager
+from llama_manager.core.runtime.log_stream import stream_log_file
 from llama_manager.core.runtime.process_manager import ProcessManager
 
 
@@ -49,6 +51,15 @@ def logs(name: str, lines: int = 200, manager: ProcessManager = Depends(get_proc
         return {"name": name, "text": manager.tail_logs(name, lines=lines)}
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/logs/{name}/stream")
+def stream_logs(name: str, lines: int = 200, manager: ProcessManager = Depends(get_process_manager)):
+    try:
+        log_path = manager.log_path(name)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return StreamingResponse(stream_log_file(log_path, lines=lines), media_type="text/event-stream")
 
 
 def _call_manager(method, name: str):

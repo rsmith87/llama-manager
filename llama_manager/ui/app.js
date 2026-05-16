@@ -23,6 +23,7 @@ const state = {
   localModels: [],
   nodeModels: [],
   conversions: [],
+  downloads: [],
   quantizations: [],
   ggufFiles: [],
   chatMessages: [],
@@ -45,6 +46,7 @@ const state = {
   authRole: "",
   selectedGgufId: null,
   selectedChatSessionId: "",
+  logAbortController: null,
 };
 
 const CHAT_PRESETS = {
@@ -62,6 +64,7 @@ const ICONS = {
   chat: `<svg viewBox="0 0 24 24" fill="none"><path d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5v4A3.5 3.5 0 0 1 15.5 14H11l-5 4v-4.5A3.5 3.5 0 0 1 5 10.5v-4Z"/><path d="M8.5 8.5h7M8.5 11h4"/></svg>`,
   controller: `<svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16"/><path d="M8 6v4M16 12v4M11 18v2"/></svg>`,
   convert: `<svg viewBox="0 0 24 24" fill="none"><path d="M7 7h10l-3-3M17 17H7l3 3"/><path d="M17 7 7 17"/></svg>`,
+  download: `<svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11"/><path d="m8 11 4 4 4-4"/><path d="M5 19h14"/></svg>`,
   cpu: `<svg viewBox="0 0 24 24" fill="none"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M4 9h3M4 15h3M17 9h3M17 15h3M9 4v3M15 4v3M9 17v3M15 17v3"/></svg>`,
   dashboard: `<svg viewBox="0 0 24 24" fill="none"><path d="M4 13a8 8 0 1 1 16 0"/><path d="m12 13 4-5"/><path d="M7 17h10"/></svg>`,
   embed: `<svg viewBox="0 0 24 24" fill="none"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="7" r="2.5"/><circle cx="8" cy="18" r="2.5"/><circle cx="17" cy="17" r="2.5"/><path d="M8 7.5 16 6.5M7 8.5l1 7M10 17.5l5-.5M16.5 9.5l.5 5"/></svg>`,
@@ -75,6 +78,7 @@ const ICONS = {
   nodes: `<svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="6" height="6" rx="2"/><rect x="14" y="4" width="6" height="6" rx="2"/><rect x="9" y="14" width="6" height="6" rx="2"/><path d="M10 7h4M7 10v2l4 2M17 10v2l-4 2"/></svg>`,
   pulse: `<svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>`,
   quant: `<svg viewBox="0 0 24 24" fill="none"><path d="M5 5h14v4H5zM7 9v10M17 9v10"/><path d="M9 14h6M10 18h4"/></svg>`,
+  settings: `<svg viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z"/><path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a1 1 0 0 1 0 1.4l-1.2 1.2a1 1 0 0 1-1.4 0l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a1 1 0 0 1-1 1h-1.6a1 1 0 0 1-1-1v-.2a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a1 1 0 0 1-1.4 0l-1.2-1.2a1 1 0 0 1 0-1.4l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a1 1 0 0 1-1-1v-1.6a1 1 0 0 1 1-1h.2a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a1 1 0 0 1 0-1.4l1.2-1.2a1 1 0 0 1 1.4 0l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4a1 1 0 0 1 1-1h1.6a1 1 0 0 1 1 1v.2a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a1 1 0 0 1 1.4 0l1.2 1.2a1 1 0 0 1 0 1.4l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6h.2a1 1 0 0 1 1 1v1.6a1 1 0 0 1-1 1h-.2a1 1 0 0 0-.9.6Z"/></svg>`,
 };
 
 function hydrateIcons() {
@@ -122,6 +126,62 @@ function closeModal(modal) {
 
 function openLogModal() {
   openModal("logs-modal");
+}
+
+function stopLogStream() {
+  if (state.logAbortController) {
+    state.logAbortController.abort();
+    state.logAbortController = null;
+  }
+}
+
+function appendLogText(text) {
+  if (!text) return;
+  const output = $("log-output");
+  const nearBottom = output.scrollTop + output.clientHeight >= output.scrollHeight - 40;
+  output.textContent += text;
+  if (nearBottom) {
+    output.scrollTop = output.scrollHeight;
+  }
+}
+
+async function streamLogsIntoModal({ title, streamPath, fallbackPath, emptyText }) {
+  stopLogStream();
+  $("log-title").textContent = title;
+  $("log-output").textContent = "";
+  openLogModal();
+  state.logAbortController = new AbortController();
+  try {
+    const { reader } = await fetchStream(streamPath, {
+      method: "GET",
+      headers: { Accept: "text/event-stream" },
+      signal: state.logAbortController.signal,
+    });
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      const events = buffer.split("\n\n");
+      buffer = events.pop() || "";
+      for (const event of events) {
+        const lines = event.split("\n");
+        const eventName = lines.find((line) => line.startsWith("event:"))?.slice(6).trim();
+        if (eventName !== "chunk") continue;
+        const dataLine = lines.find((line) => line.startsWith("data:"));
+        if (!dataLine) continue;
+        const payload = JSON.parse(dataLine.slice(5));
+        appendLogText(String(payload.text || ""));
+      }
+      if (done) break;
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+    const payload = await api(fallbackPath);
+    $("log-output").textContent = payload.text || payload.result?.text || emptyText;
+  } finally {
+    state.logAbortController = null;
+  }
 }
 
 async function api(path, options = {}) {
@@ -228,6 +288,10 @@ async function refreshAll() {
     await refreshSection(async () => {
       state.conversions = await api("/conversions/models");
       renderConversions();
+    });
+    await refreshSection(async () => {
+      state.downloads = await api("/downloads/history?limit=200");
+      renderDownloads();
     });
 
     await refreshSection(async () => {
@@ -665,18 +729,99 @@ function renderActivePage() {
   if (state.activePage === "audit") renderAudit();
   if (state.activePage === "gguf-library") renderGgufLibrary();
   if (state.activePage === "hf-to-gguf") renderConversions();
+  if (state.activePage === "hf-downloads") renderDownloads();
   if (state.activePage === "quantization") renderQuantizations();
+  if (state.activePage === "settings") renderSettingsConfig();
+}
+
+function renderSettingsConfig() {
+  const mode = $("settings-mode")?.value || "single";
+  const logDir = ($("settings-log-dir")?.value || "./logs").trim() || "./logs";
+  const controllerUrl = ($("settings-controller-url")?.value || "http://127.0.0.1:9137").trim();
+  const controllerApiKey = ($("settings-controller-api-key")?.value || "").trim();
+  const registrationKey = ($("settings-registration-key")?.value || "").trim();
+  const agentApiKey = ($("settings-agent-api-key")?.value || "").trim();
+  const agentName = ($("settings-agent-name")?.value || "local-agent").trim() || "local-agent";
+  const agentUrl = ($("settings-agent-url")?.value || "http://127.0.0.1:9000").trim() || "http://127.0.0.1:9000";
+
+  const lines = [`mode: ${mode}`, `log_dir: ${JSON.stringify(logDir)}`, "models: {}"];
+  if (mode === "controller") {
+    lines.push("nodes:");
+    lines.push(`  ${agentName}:`);
+    lines.push(`    url: ${JSON.stringify(agentUrl)}`);
+    lines.push(`    api_key: ${JSON.stringify(agentApiKey || "CHANGE_ME_AGENT_API_KEY")}`);
+    lines.push("    verify_tls: true");
+  }
+  if (mode === "agent") {
+    lines.push(`controller_url: ${JSON.stringify(controllerUrl)}`);
+    lines.push(`controller_registration_key_outbound: ${JSON.stringify(registrationKey || "CHANGE_ME_REGISTRATION_KEY")}`);
+    if (controllerApiKey) lines.push(`controller_api_key: ${JSON.stringify(controllerApiKey)}`);
+  }
+  if (mode === "single" && controllerApiKey) {
+    lines.push(`api_key: ${JSON.stringify(controllerApiKey)}`);
+  }
+  $("settings-config-output").textContent = `${lines.join("\n")}\n`;
+
+  const exports = [`export LLAMA_MANAGER_CONFIG=config.yaml`, `export LLAMA_MANAGER_MODE=${mode}`];
+  if (mode === "agent") {
+    exports.push(`export LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND=${shellQuote(registrationKey || "CHANGE_ME_REGISTRATION_KEY")}`);
+    exports.push(`export LLAMA_MANAGER_CONTROLLER_URL=${shellQuote(controllerUrl || "http://127.0.0.1:9137")}`);
+    if (controllerApiKey) exports.push(`export LLAMA_MANAGER_CONTROLLER_API_KEY=${shellQuote(controllerApiKey)}`);
+  } else if (mode === "controller") {
+    exports.push(`export LLAMA_MANAGER_AGENT_API_KEY=${shellQuote(agentApiKey || "CHANGE_ME_AGENT_API_KEY")}`);
+  } else if (controllerApiKey) {
+    exports.push(`export LLAMA_MANAGER_API_KEY=${shellQuote(controllerApiKey)}`);
+  }
+  $("settings-exports-output").textContent = `${exports.join("\n")}\n`;
+}
+
+async function generateSettingsApiKeys() {
+  const prefix = ($("settings-key-prefix")?.value || "llm").trim();
+  const tokenBytes = Number($("settings-key-bytes")?.value || 32);
+  const count = Number($("settings-key-count")?.value || 1);
+  const payload = await api("/settings/api-keys/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ prefix, token_bytes: tokenBytes, count }),
+  });
+  $("settings-generated-keys-output").textContent = JSON.stringify(payload, null, 2);
+  return payload;
+}
+
+function shellQuote(value) {
+  const text = String(value ?? "");
+  return `'${text.replaceAll("'", "'\"'\"'")}'`;
 }
 
 function renderGgufLibrary() {
   const body = $("library-body");
   if (!state.ggufFiles.length) {
-    body.innerHTML = `<tr><td colspan="6" class="empty">No GGUF files found under HF models.</td></tr>`;
+    body.innerHTML = `<p class="empty">No GGUF files found under HF models.</p>`;
     return;
   }
-
-  body.innerHTML = state.ggufFiles.map((file) => libraryRow(file)).join("");
-  bindLibraryButtons(body);
+  const added = state.ggufFiles.filter((file) => Boolean(file.registered));
+  const available = state.ggufFiles.filter((file) => !file.registered);
+  body.innerHTML = [
+    `<section class="library-section">
+      <header class="library-section-header">
+        <h3>Added Models</h3>
+        <p>Models already configured in your local config and available for use.</p>
+      </header>
+      <div class="library-cards">
+        ${added.length ? added.map((file) => libraryCard(file)).join("") : `<p class="empty">No added models yet.</p>`}
+      </div>
+    </section>`,
+    `<section class="library-section">
+      <header class="library-section-header">
+        <h3>Available GGUF Files</h3>
+        <p>Discovered files not yet added to your local config.</p>
+      </header>
+      <div class="library-cards">
+        ${available.length ? available.map((file) => libraryCard(file)).join("") : `<p class="empty">All discovered files are already added.</p>`}
+      </div>
+    </section>`,
+  ].join("");
+  bindLibraryCards(body);
 }
 
 function renderConversions() {
@@ -701,6 +846,63 @@ function renderQuantizations() {
   bindQuantizationButtons(body);
 }
 
+function renderDownloads() {
+  const body = $("downloads-body");
+  if (!body) return;
+  if (!state.downloads.length) {
+    body.innerHTML = `<tr><td colspan="7" class="empty">No download history yet.</td></tr>`;
+    return;
+  }
+  body.innerHTML = state.downloads.map((item) => `<tr>
+    <td><strong>${escapeHtml(item.repo_id)}</strong></td>
+    <td><span class="status ${item.status === "running" ? "running" : item.status === "succeeded" ? "stopped" : "error"}">${escapeHtml(item.status)}</span></td>
+    <td>${escapeHtml(item.started_at || "-")}</td>
+    <td>${escapeHtml(item.finished_at || "-")}</td>
+    <td class="path" title="${escapeHtml(item.local_path || "-")}">${escapeHtml(item.local_path || "-")}</td>
+    <td>${escapeHtml(item.triggered_by || "-")}</td>
+    <td><div class="actions" data-download-id="${escapeHtml(item.id)}" data-download-repo="${escapeHtml(item.repo_id)}"><button class="primary" data-download-action="start" ${item.status === "running" ? "disabled" : ""}>Download</button><button data-download-action="logs">Logs</button><button data-download-action="delete" ${item.status === "running" ? "disabled" : ""}>Delete</button></div></td>
+  </tr>`).join("");
+  body.querySelectorAll("button[data-download-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const container = button.closest(".actions");
+      await runDownloadAction({
+        downloadId: container.dataset.downloadId,
+        repoId: container.dataset.downloadRepo,
+        action: button.dataset.downloadAction,
+      });
+    });
+  });
+}
+
+async function runDownloadAction({ downloadId, repoId, action }) {
+  try {
+    if (action === "logs") {
+      const payload = await api(`/downloads/${encodeURIComponent(downloadId)}/logs?lines=200`);
+      $("log-title").textContent = `download / ${repoId}`;
+      $("log-output").textContent = payload.text || "No download log output.";
+      openLogModal();
+      return;
+    }
+    if (action === "delete") {
+      if (!confirmAction(`Delete download history item for ${repoId}?`)) return;
+      await api(`/downloads/${encodeURIComponent(downloadId)}`, { method: "DELETE" });
+      showToast(`deleted download record for ${repoId}`);
+      await refreshAll();
+      return;
+    }
+    const revision = ($("download-revision")?.value || "").trim();
+    await api(`/downloads/${encodeURIComponent(repoId)}/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ revision: revision || null }),
+    });
+    showToast(`download started for ${repoId}`);
+    await refreshAll();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
 function renderHealth() {
   const health = state.health;
   $("subtitle").textContent = health.ok
@@ -719,11 +921,11 @@ function renderHealth() {
 function renderLocalModels() {
   const body = $("models-body");
   if (!state.localModels.length) {
-    body.innerHTML = `<tr><td colspan="7" class="empty">No local models configured.</td></tr>`;
+    body.innerHTML = `<p class="empty">No local models configured.</p>`;
     return;
   }
 
-  body.innerHTML = sortModelsForDisplay(state.localModels).map((model) => modelRow(model)).join("");
+  body.innerHTML = sortModelsForDisplay(state.localModels).map((model) => modelCard(model)).join("");
   bindModelButtons(body);
   bindFavoriteButtons(body);
 }
@@ -925,42 +1127,31 @@ function renderChatTargetOptions() {
   }
 }
 
-function libraryRow(file) {
+function libraryCard(file) {
   const status = file.registered ? `added as ${file.registered_as}` : "available";
   const statusClass = file.registered ? "running" : "stopped";
-  return `<tr class="clickable-row" tabindex="0" data-gguf-row="${escapeHtml(file.id)}" aria-label="Open details for ${escapeHtml(file.filename)}">
-    <td><strong>${escapeHtml(file.model_dir)}</strong></td>
-    <td>${escapeHtml(file.filename)}</td>
-    <td>${escapeHtml(formatGb(file.size_gb))}</td>
-    <td><span class="status ${statusClass}">${escapeHtml(status)}</span></td>
-    <td class="path" title="${escapeHtml(file.path)}">${escapeHtml(file.path)}</td>
-    <td>
-      <div class="actions" data-gguf-id="${escapeHtml(file.id)}" data-model-dir="${escapeHtml(file.model_dir)}">
-        <button class="primary" data-library-action="add" ${file.registered ? "disabled" : ""}>Add</button>
-      </div>
-    </td>
-  </tr>`;
+  return `<article class="library-card" tabindex="0" data-gguf-card="${escapeHtml(file.id)}" aria-label="Open details for ${escapeHtml(file.filename)}">
+    <h3>${escapeHtml(file.filename)}</h3>
+    <div class="library-card-grid">
+      <div class="k">Directory</div><div class="v">${escapeHtml(file.model_dir)}</div>
+      <div class="k">Library Name</div><div class="v">${escapeHtml(file.name || "-")}</div>
+      <div class="k">Size</div><div class="v">${escapeHtml(formatGb(file.size_gb))} (${escapeHtml(formatBytes(file.size_bytes))})</div>
+      <div class="k">Status</div><div class="v"><span class="status ${statusClass}">${escapeHtml(status)}</span></div>
+      <div class="k">Path</div><div class="v mono" title="${escapeHtml(file.path)}">${escapeHtml(file.path)}</div>
+      <div class="k">File ID</div><div class="v mono">${escapeHtml(file.id)}</div>
+    </div>
+  </article>`;
 }
 
-function bindLibraryButtons(root) {
-  root.querySelectorAll("tr[data-gguf-row]").forEach((row) => {
-    const open = () => openGgufDetail(row.dataset.ggufRow);
-    row.addEventListener("click", open);
-    row.addEventListener("keydown", (event) => {
+function bindLibraryCards(root) {
+  root.querySelectorAll("[data-gguf-card]").forEach((card) => {
+    const open = () => openGgufDetail(card.dataset.ggufCard);
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
         open();
       }
-    });
-  });
-  root.querySelectorAll("button[data-library-action]").forEach((button) => {
-    button.addEventListener("click", async (event) => {
-      event.stopPropagation();
-      const container = button.closest(".actions");
-      await addLibraryModel({
-        fileId: container.dataset.ggufId,
-        modelDir: container.dataset.modelDir,
-      });
     });
   });
 }
@@ -977,6 +1168,11 @@ function openGgufDetail(fileId) {
   $("gguf-detail-body").innerHTML = ggufDetailMarkup(file);
   $("gguf-detail-add-button").disabled = Boolean(file.registered);
   $("gguf-detail-add-button").textContent = file.registered ? "Already Added" : "Add Model";
+  const removeBtn = $("gguf-detail-remove-button");
+  if (removeBtn) {
+    removeBtn.disabled = !file.registered_as;
+    removeBtn.textContent = file.registered_as ? `Remove ${file.registered_as}` : "Remove Model";
+  }
   openModal("gguf-detail-modal");
 }
 
@@ -1054,20 +1250,7 @@ function renderNodesPage() {
 
 function nodeCard(node, { compact }) {
   const models = node.models?.length
-    ? `<div class="table-wrap"><table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Status</th>
-            <th>Port</th>
-            <th>PID</th>
-            <th>Path</th>
-            <th>Source</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>${sortModelsForDisplay(node.models).map((model) => modelRow(model, node.name)).join("")}</tbody>
-      </table></div>`
+    ? `<div class="model-cards">${sortModelsForDisplay(node.models).map((model) => modelCard(model, node.name)).join("")}</div>`
     : `<p class="empty">${escapeHtml(node.error || "No models reported.")}</p>`;
   const heartbeat = node.heartbeat_age_seconds == null ? "-" : `${node.heartbeat_age_seconds}s`;
   const provenance = [
@@ -1164,6 +1347,32 @@ function modelRow(model, nodeName = null) {
       </div>
     </td>
   </tr>`;
+}
+
+function modelCard(model, nodeName = null) {
+  const running = Boolean(model.running);
+  const scope = nodeName ? `data-node="${escapeHtml(nodeName)}"` : "";
+  const favoriteButton = nodeName
+    ? ""
+    : `<button class="icon-button favorite-button ${model.favorite ? "active" : ""}" type="button" data-favorite-model="${escapeHtml(model.name)}" data-favorite="${model.favorite ? "true" : "false"}" title="${model.favorite ? "Unfavorite model" : "Favorite model"}" aria-label="${model.favorite ? "Unfavorite model" : "Favorite model"}">${model.favorite ? "★" : "☆"}</button>`;
+  return `<article class="model-card">
+    <div class="model-card-head">
+      <div class="model-name-cell">${favoriteButton}<strong>${escapeHtml(model.name)}</strong></div>
+      <span class="status ${running ? "running" : "stopped"}">${running ? "running" : "stopped"}</span>
+    </div>
+    <div class="model-card-grid">
+      <div><span class="label">Port</span><strong>${model.port ?? "-"}</strong></div>
+      <div><span class="label">PID</span><strong>${model.pid ?? "-"}</strong></div>
+      <div><span class="label">Source</span><strong>${escapeHtml(model.model_source || "unknown")}</strong></div>
+      <div class="model-card-path"><span class="label">Path</span><strong title="${escapeHtml(model.model_path || "")}">${escapeHtml(model.model_path || "-")}</strong></div>
+    </div>
+    <div class="actions model-card-actions" ${scope} data-model="${escapeHtml(model.name)}">
+      <button class="primary" data-action="start" ${running ? "disabled" : ""}>Start</button>
+      <button class="danger" data-action="stop" ${running ? "" : "disabled"}>Stop</button>
+      <button data-action="restart">Restart</button>
+      <button data-action="logs">Logs</button>
+    </div>
+  </article>`;
 }
 
 function bindFavoriteButtons(root) {
@@ -1295,13 +1504,14 @@ function bindQuantizationButtons(root) {
 async function runModelAction({ model, node, action }) {
   try {
     if (action === "logs") {
-      const path = node
+      const title = node ? `${node} / ${model}` : model;
+      const fallbackPath = node
         ? `/nodes/${encodeURIComponent(node)}/logs/${encodeURIComponent(model)}?lines=200`
         : `/logs/${encodeURIComponent(model)}?lines=200`;
-      const payload = await api(path);
-      $("log-title").textContent = node ? `${node} / ${model}` : model;
-      $("log-output").textContent = payload.text || "No log output.";
-      openLogModal();
+      const streamPath = node
+        ? `/nodes/${encodeURIComponent(node)}/logs/${encodeURIComponent(model)}/stream?lines=200`
+        : `/logs/${encodeURIComponent(model)}/stream?lines=200`;
+      await streamLogsIntoModal({ title, streamPath, fallbackPath, emptyText: "No log output." });
       return;
     }
 
@@ -1345,10 +1555,12 @@ async function runModelAction({ model, node, action }) {
 async function runConversionAction({ model, action }) {
   try {
     if (action === "logs") {
-      const payload = await api(`/conversions/${encodeURIComponent(model)}/logs?lines=200`);
-      $("log-title").textContent = `conversion / ${model}`;
-      $("log-output").textContent = payload.text || "No conversion log output.";
-      openLogModal();
+      await streamLogsIntoModal({
+        title: `conversion / ${model}`,
+        streamPath: `/conversions/${encodeURIComponent(model)}/logs/stream?lines=200`,
+        fallbackPath: `/conversions/${encodeURIComponent(model)}/logs?lines=200`,
+        emptyText: "No conversion log output.",
+      });
       return;
     }
 
@@ -1363,10 +1575,12 @@ async function runConversionAction({ model, action }) {
 async function runQuantizationAction({ fileId, filename, type, action }) {
   try {
     if (action === "logs") {
-      const payload = await api(`/quantizations/${encodeURIComponent(fileId)}/logs?lines=200`);
-      $("log-title").textContent = `quantization / ${filename}`;
-      $("log-output").textContent = payload.text || "No quantization log output.";
-      openLogModal();
+      await streamLogsIntoModal({
+        title: `quantization / ${filename}`,
+        streamPath: `/quantizations/${encodeURIComponent(fileId)}/logs/stream?lines=200`,
+        fallbackPath: `/quantizations/${encodeURIComponent(fileId)}/logs?lines=200`,
+        emptyText: "No quantization log output.",
+      });
       return;
     }
 
@@ -1442,6 +1656,21 @@ async function deleteSelectedGguf() {
       : "";
     closeModal($("gguf-detail-modal"));
     showToast(`deleted ${file.filename}${unregistered}`);
+    await refreshAll();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function removeSelectedGgufModel() {
+  const file = state.ggufFiles.find((item) => item.id === state.selectedGgufId);
+  if (!file) return showToast("Select a GGUF file first.");
+  if (!file.registered_as) return showToast("No registered model to remove for this file.");
+  if (!confirmAction(`Remove model "${file.registered_as}" from configured local models?`)) return;
+  try {
+    await api(`/library/models/${encodeURIComponent(file.registered_as)}`, { method: "DELETE" });
+    closeModal($("gguf-detail-modal"));
+    showToast(`removed model ${file.registered_as}`);
     await refreshAll();
   } catch (error) {
     showToast(error.message);
@@ -2466,6 +2695,24 @@ function shortPath(value) {
   return `...${text.slice(-31)}`;
 }
 
+function formatSliderValue(id, rawValue) {
+  const value = Number(rawValue);
+  if (["chat-top-p", "chat-min-p", "chat-repeat-penalty"].includes(id)) return value.toFixed(2);
+  if (id === "chat-temperature") return value.toFixed(2);
+  return String(Math.trunc(value));
+}
+
+function updateChatSliderValue(id) {
+  const input = $(id);
+  const output = $(`${id}-value`);
+  if (!input || !output) return;
+  output.textContent = formatSliderValue(id, input.value);
+}
+
+function refreshChatSliderValues() {
+  ["chat-temperature", "chat-max-tokens", "chat-top-p", "chat-top-k", "chat-min-p", "chat-repeat-penalty", "chat-seed"].forEach(updateChatSliderValue);
+}
+
 document.querySelectorAll("[data-page-target]").forEach((button) => {
   button.addEventListener("click", () => {
     setActivePage(button.dataset.pageTarget);
@@ -2489,6 +2736,7 @@ document.querySelectorAll("dialog.modal").forEach((modal) => {
     if (event.target === modal) closeModal(modal);
   });
   modal.addEventListener("close", () => {
+    if (modal.id === "logs-modal") stopLogStream();
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden", "true");
   });
@@ -2524,6 +2772,7 @@ $("embeddings-neighbors-button")?.addEventListener("click", computeNearestNeighb
 $("embeddings-cluster-button")?.addEventListener("click", runQuickClusters);
 $("advisor-run-button")?.addEventListener("click", recommendQuantization);
 $("gguf-detail-add-button")?.addEventListener("click", () => void addSelectedGgufModel());
+$("gguf-detail-remove-button")?.addEventListener("click", () => void removeSelectedGgufModel());
 $("gguf-detail-delete-button")?.addEventListener("click", () => void deleteSelectedGguf());
 $("chat-input").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
@@ -2542,9 +2791,13 @@ $("chat-preset").addEventListener("change", applyChatPreset);
   $("chat-json-schema").addEventListener("input", applyStructuredModeUI);
   $("chat-grammar").addEventListener("input", applyStructuredModeUI);
   restoreChatPreset();
+  refreshChatSliderValues();
   applyStructuredModeUI();
 ["chat-temperature", "chat-max-tokens", "chat-top-p", "chat-top-k", "chat-min-p", "chat-repeat-penalty", "chat-seed", "chat-stop"].forEach((id) => {
-  $(id).addEventListener("input", renderChatDefaultsDiff);
+  $(id).addEventListener("input", () => {
+    updateChatSliderValue(id);
+    renderChatDefaultsDiff();
+  });
 });
 $("controller-export-button")?.addEventListener("click", async () => {
   try {
@@ -2593,6 +2846,113 @@ $("nodes-refresh-button")?.addEventListener("click", () => void refreshNodesPage
 $("node-edit-save-button")?.addEventListener("click", () => void saveNodeEdit().catch((e) => showToast(e.message)));
 $("keys-create-button")?.addEventListener("click", () => void createAuthKey().catch((e) => showToast(e.message)));
 $("keys-refresh-button")?.addEventListener("click", () => void refreshAuthKeys());
+$("download-refresh-button")?.addEventListener("click", () => void refreshAll());
+["settings-log-dir", "settings-mode", "settings-controller-url", "settings-controller-api-key", "settings-registration-key", "settings-agent-api-key", "settings-agent-name", "settings-agent-url"].forEach((id) => {
+  $(id)?.addEventListener("input", renderSettingsConfig);
+  $(id)?.addEventListener("change", renderSettingsConfig);
+});
+$("settings-build-config")?.addEventListener("click", renderSettingsConfig);
+$("settings-generate-key")?.addEventListener("click", async () => {
+  try {
+    await generateSettingsApiKeys();
+    showToast("Generated API key(s)");
+  } catch (error) {
+    showToast(error.message);
+  }
+});
+$("settings-apply-generated-key")?.addEventListener("click", async () => {
+  try {
+    const payload = await generateSettingsApiKeys();
+    const key = payload?.keys?.[0];
+    if (!key) return showToast("No keys returned");
+    const target = $("settings-key-apply-target")?.value || "controller";
+    if (target === "registration") $("settings-registration-key").value = key;
+    else if (target === "agent") $("settings-agent-api-key").value = key;
+    else $("settings-controller-api-key").value = key;
+    renderSettingsConfig();
+    showToast("Applied generated key");
+  } catch (error) {
+    showToast(error.message);
+  }
+});
+$("settings-copy-config")?.addEventListener("click", async () => {
+  const text = $("settings-config-output")?.textContent || "";
+  if (!text.trim()) return showToast("Generate config first.");
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("config.yaml copied");
+  } catch (_error) {
+    showToast("Clipboard copy failed");
+  }
+});
+$("settings-download-config")?.addEventListener("click", () => {
+  const text = $("settings-config-output")?.textContent || "";
+  if (!text.trim()) return showToast("Generate config first.");
+  downloadText("config.yaml", text, "application/x-yaml");
+});
+$("settings-copy-exports")?.addEventListener("click", async () => {
+  const text = $("settings-exports-output")?.textContent || "";
+  if (!text.trim()) return showToast("Generate config first.");
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Env exports copied");
+  } catch (_error) {
+    showToast("Clipboard copy failed");
+  }
+});
+$("settings-download-exports")?.addEventListener("click", () => {
+  const text = $("settings-exports-output")?.textContent || "";
+  if (!text.trim()) return showToast("Generate config first.");
+  downloadText("llama-manager-env.sh", text, "text/x-shellscript");
+});
+document.querySelectorAll("[data-settings-tab-target]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const target = button.getAttribute("data-settings-tab-target");
+    if (!target) return;
+    document.querySelectorAll("[data-settings-tab-target]").forEach((tab) => {
+      const active = tab.getAttribute("data-settings-tab-target") === target;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    document.querySelectorAll("[data-settings-tab-panel]").forEach((panel) => {
+      const active = panel.getAttribute("data-settings-tab-panel") === target;
+      panel.classList.toggle("active", active);
+      panel.hidden = !active;
+    });
+  });
+});
+document.querySelectorAll("[data-settings-pane-target]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const target = button.getAttribute("data-settings-pane-target");
+    if (!target) return;
+    document.querySelectorAll("[data-settings-pane-target]").forEach((tab) => {
+      const active = tab.getAttribute("data-settings-pane-target") === target;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    document.querySelectorAll("[data-settings-pane]").forEach((panel) => {
+      const active = panel.getAttribute("data-settings-pane") === target;
+      panel.classList.toggle("active", active);
+      panel.hidden = !active;
+    });
+  });
+});
+
+function onDownloadStartClick() {
+  const repoId = ($("download-repo-id")?.value || "").trim();
+  if (!repoId) {
+    showToast("Enter owner/model");
+    return;
+  }
+  void runDownloadAction({ downloadId: "", repoId, action: "start" }).catch((error) => {
+    showToast(error?.message || "Download request failed");
+  });
+}
+
+$("download-form")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  onDownloadStartClick();
+});
 window.addEventListener("hashchange", () => setActivePage(window.location.hash.slice(1)));
 setActivePage(window.location.hash.slice(1) || "dashboard");
 $("auth-login-button")?.addEventListener("click", () => void loginUi().then(() => refreshAll()).catch((e) => showToast(e.message)));
@@ -2600,6 +2960,7 @@ $("auth-logout-button")?.addEventListener("click", () => void logoutUi());
 hydrateIcons();
 applyChatPreset();
 renderChatDefaultsDiff();
+renderSettingsConfig();
 bootstrapAuth().then(() => refreshAll());
 
 

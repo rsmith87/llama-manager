@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 
 from llama_manager.api.dependencies import get_conversion_manager
+from llama_manager.core.runtime.log_stream import stream_log_file
 from llama_manager.core.model_assets.conversions import ConversionManager
 
 
@@ -43,3 +45,15 @@ def conversion_logs(
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+
+@router.get("/{name}/logs/stream")
+def stream_conversion_logs(
+    name: str,
+    lines: int = 200,
+    manager: ConversionManager = Depends(get_conversion_manager),
+):
+    try:
+        log_path = manager.log_path(name)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return StreamingResponse(stream_log_file(log_path, lines=lines), media_type="text/event-stream")

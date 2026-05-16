@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 
 from llama_manager.api.dependencies import get_quantization_manager
 from llama_manager.core.model_assets.quantizations import QuantizationManager
+from llama_manager.core.runtime.log_stream import stream_log_file
 
 
 router = APIRouter(prefix="/quantizations")
@@ -51,3 +53,16 @@ def quantization_logs(
         return {"id": file_id, "text": manager.tail_logs(file_id, lines=lines)}
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/{file_id}/logs/stream")
+def stream_quantization_logs(
+    file_id: str,
+    lines: int = 200,
+    manager: QuantizationManager = Depends(get_quantization_manager),
+):
+    try:
+        log_path = manager.log_path(file_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return StreamingResponse(stream_log_file(log_path, lines=lines), media_type="text/event-stream")

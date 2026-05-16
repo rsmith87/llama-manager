@@ -39,3 +39,13 @@ async def node_logs(
     registry: NodeRegistry = Depends(get_node_registry),
 ):
     return await proxy_node_request(registry, node, "GET", f"/logs/{name}?lines={lines}")
+
+
+@router.get("/nodes/{node}/logs/{name}/stream")
+async def node_logs_stream(
+    node: str,
+    name: str,
+    lines: int = 200,
+    registry: NodeRegistry = Depends(get_node_registry),
+):
+    return await proxy_node_request(registry, node, "GET", f"/logs/{name}/stream?lines={lines}")

@@ -665,6 +665,32 @@ def test_chat_stream_route_proxies_stream_to_llama_server():
     ]
 
 
+def test_chat_route_applies_model_prompt_template():
+    calls = []
+
+    async def fake_chat_request(url, payload):
+        calls.append((url, payload))
+        return {"choices": [{"message": {"role": "assistant", "content": "hello"}}]}
+
+    app = create_app(
+        config=load_config(
+            {
+                "mode": "agent",
+                "models": {"qwen": {"path": "/models/qwen.gguf", "port": 8081, "prompt_template": "chatml"}},
+            }
+        ),
+        process_manager=StubProcessManager(running=True),
+        conversion_manager=StubConversionManager(),
+        gguf_library=StubGgufLibrary(),
+        chat_request=fake_chat_request,
+    )
+    client = TestClient(app)
+
+    response = client.post("/chat/qwen", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert response.status_code == 200
+    assert calls[0][1]["chat_template"] == "chatml"
+
+
 def test_chat_sessions_crud_routes(tmp_path):
     app = create_app(
         config=load_config(

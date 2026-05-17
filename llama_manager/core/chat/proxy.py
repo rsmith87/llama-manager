@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from llama_manager.core.chat import CapabilityInspector, ModelNotRunningError, TargetResolver, TransportBuilder
+from llama_manager.core.chat import CapabilityInspector, ModelNotRunningError, PromptTemplateAdapter, TargetResolver, TransportBuilder
 from llama_manager.core.config import AppConfig
 from llama_manager.core.nodes.registry import NodeRegistry
 from llama_manager.core.runtime.process_manager import ProcessManager
@@ -26,6 +26,7 @@ class ChatProxy:
         self._resolver = TargetResolver(process_manager, node_registry, config)
         self._transport = TransportBuilder(node_registry)
         self._capabilities = CapabilityInspector(process_manager, config)
+        self._prompt_templates = PromptTemplateAdapter()
 
     async def chat(self, model_name: str, payload: dict[str, Any]) -> dict[str, Any]:
         response, _ = await self.chat_with_meta(model_name, payload)
@@ -127,6 +128,8 @@ class ChatProxy:
             "stream": stream,
             "chat_template_kwargs": {"enable_thinking": bool(payload.get("reasoning", False))},
         }
+        model_template = self.config.models.get(model_name).prompt_template if model_name in self.config.models else None
+        request_payload = self._prompt_templates.apply(model_name, model_template, request_payload, payload)
         for key in ("top_p", "top_k", "min_p", "repeat_penalty", "seed", "stop", "json_schema", "grammar"):
             if payload.get(key) is not None:
                 request_payload[key] = payload[key]

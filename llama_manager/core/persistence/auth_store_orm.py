@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import secrets
 import uuid
 from datetime import UTC, datetime
@@ -20,16 +21,19 @@ from llama_manager.core.persistence.models.app_state import ApiKeyOrm
 
 
 class AuthStoreOrm:
+    PROJECT_ROOT = Path(__file__).resolve().parents[3]
+    REAL_AUTH_DB = PROJECT_ROOT / "logs" / "auth_store.db"
+
     def __init__(self, db_path: Path | None = None, db_url: str | None = None):
         if db_url is None:
             if db_path is None:
                 raise ValueError("db_path or db_url is required")
             db_path.parent.mkdir(parents=True, exist_ok=True)
             db_url = sqlite_url_for_path(db_path)
-        sqlite_path = sqlite_path_from_url(db_url)
-        if sqlite_path is not None:
+        self.sqlite_path = sqlite_path_from_url(db_url)
+        if self.sqlite_path is not None:
             require_sqlite_tables(
-                db_path=sqlite_path,
+                db_path=self.sqlite_path,
                 required_tables={"api_keys", "alembic_version"},
                 target_name="auth",
             )
@@ -41,6 +45,15 @@ class AuthStoreOrm:
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def create_key(self, username: str, role: str) -> dict[str, object]:
+        if (
+            os.getenv("PYTEST_CURRENT_TEST")
+            and self.sqlite_path is not None
+            and self.sqlite_path.resolve() == self.REAL_AUTH_DB
+        ):
+            raise RuntimeError(
+                "Refusing to create test API key in the repository auth store; "
+                "use a tmp_path-backed migrated auth database."
+            )
         raw = f"lm_{secrets.token_urlsafe(24)}"
         key_id = str(uuid.uuid4())
         key_hash = self.hash_key(raw)

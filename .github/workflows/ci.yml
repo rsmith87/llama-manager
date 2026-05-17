@@ -40,7 +40,7 @@ jobs:
               'controller.db': {'jobs','job_attempts','node_leases','job_events','artifacts','schema_meta','controller_leases','alembic_version'},
               'auth.db': {'api_keys','alembic_version'},
               'audit.db': {'audit_events','alembic_version'},
-              'chat_sessions.db': {'chat_sessions','alembic_version'},
+              'chat_sessions.db': {'chat_sessions','model_downloads','alembic_version'},
           }
 
           for name, expected in checks.items():
@@ -94,7 +94,7 @@ jobs:
               'controller.db': '20260513_0001',
               'auth.db': '20260513_0002',
               'audit.db': '20260513_0003',
-              'chat_sessions.db': '20260513_0004',
+              'chat_sessions.db': '20260515_0005',
           }
           for name, expected in expected_revisions.items():
               conn = sqlite3.connect(base / name)

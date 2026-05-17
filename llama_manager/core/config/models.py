@@ -24,6 +24,7 @@ class ModelConfig(BaseModel):
     supports_json_schema: bool | None = None
     supports_grammar: bool | None = None
     favorite: bool = False
+    prompt_template: str | None = None
 
 
 class NodeConfig(BaseModel):

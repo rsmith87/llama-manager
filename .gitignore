@@ -14,4 +14,5 @@ config*.yaml
 tests/tmp
 docs/complete
 docs/superpowers
+docs/todo
 llamacpp_handler.egg-info

@@ -34,18 +34,18 @@ Example Mac agent:
 
 ```yaml
 mode: agent
-llama_server_bin: /Users/robertsmith/Apps/llama.cpp/build/bin/llama-server
-llama_cpp_dir: /Users/robertsmith/Apps/llama.cpp
-python_bin: /Users/robertsmith/Apps/llama.cpp/.venv/bin/python
+llama_server_bin: /Users/{user_name}/Apps/llama.cpp/build/bin/llama-server
+llama_cpp_dir: /Users/{user_name}/Apps/llama.cpp
+python_bin: /Users/{user_name}/Apps/llama.cpp/.venv/bin/python
 hf_models_dirs:
-  - /Users/robertsmith/models
+  - /Users/{user_name}/models
 log_dir: ./logs
 agent_api_key: local-agent-key
 agent_worker_enabled: false
 
 models:
   qwen-coder:
-    path: /Users/robertsmith/models/qwen-coder.gguf
+    path: /Users/{user_name}/models/qwen-coder.gguf
     port: 8081
     ctx: 16384
     gpu_layers: 999
@@ -80,7 +80,7 @@ alembic -x db=chat_sessions upgrade chat_sessions@head
 Before using the UI or protected API routes, create an admin key:
 
 ```bash
-uv run python -m llama_manager.auth --config config.yaml create-admin robert
+uv run python -m llama_manager.auth --config config.yaml create-admin {user_name}
 ```
 
 The command stores only a hash in `log_dir/auth_store.db` and prints the raw key once. Use that key in the UI login form or as the `X-Llama-Manager-Key` header for API requests. There is no `dev` fallback login.
@@ -189,8 +189,8 @@ Set config values on the agent with HF models:
 hf_models_dirs:
   - /Volumes/4TB/HFModels
   - /Volumes/4TB/OtherModels
-llama_cpp_dir: /Users/robertsmith/Apps/llama.cpp
-python_bin: /Users/robertsmith/Apps/llama.cpp/.venv/bin/python
+llama_cpp_dir: /Users/{user_name}/Apps/llama.cpp
+python_bin: /Users/{user_name}/Apps/llama.cpp/.venv/bin/python
 ```
 
 Use:
@@ -239,7 +239,40 @@ LLAMA_MANAGER_CONFIG=controller.yaml uvicorn llama_manager.main:app --host 0.0.0
 
 Controller endpoints include node inventory/proxy plus orchestration (`/jobs`, node `/work/*`, stats, retention, archive export). In the UI, use the Nodes page to inspect registered agents, heartbeat freshness, reported models, and remote model Start/Stop/Restart/Logs actions.
 
-## 11. Enable Agent Worker Jobs
+## 11. Run The Controller On A Raspberry Pi
+
+Raspberry Pi integration is a good fit for the always-on controller role. The Pi runs `mode: controller`, owns node inventory and durable orchestration state, and each agent machine points its `controller_url` at the Pi.
+
+```bash
+cp raspberry-pi-controller.config.example.yaml raspberry-pi-controller.config.yaml
+export LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY=...
+export LLAMA_MANAGER_MAC_MINI_AGENT_API_KEY=...
+export LLAMA_MANAGER_LINUX_2080TI_AGENT_API_KEY=...
+LLAMA_MANAGER_CONFIG=raspberry-pi-controller.config.yaml uvicorn llama_manager.main:app --host 0.0.0.0 --port 9137
+```
+
+Pi controller config essentials:
+
+```yaml
+mode: controller
+log_dir: /home/{user_name}/llama-manager/logs
+controller_registration_key: ${LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY}
+node_heartbeat_timeout_seconds: 90
+
+nodes:
+  mac-mini:
+    url: http://MAC_MINI_IP:9137
+    api_key: ${LLAMA_MANAGER_MAC_MINI_AGENT_API_KEY}
+    verify_tls: true
+  linux-2080ti:
+    url: http://LINUX_2080TI_IP:9137
+    api_key: ${LLAMA_MANAGER_LINUX_2080TI_AGENT_API_KEY}
+    verify_tls: true
+```
+
+On each agent, set `controller_url: http://RASPBERRY_PI_IP:9137` and `controller_registration_key_outbound` to the same value as the Pi controller's `controller_registration_key`. If the agent worker is enabled, make sure the agent's `agent_api_key` matches the corresponding `nodes.<name>.api_key` value on the Pi controller.
+
+## 12. Enable Agent Worker Jobs
 
 The controller owns durable jobs. Agents execute jobs only when the worker is explicitly enabled.
 
@@ -321,7 +354,7 @@ Queued jobs cancel immediately. Assigned or running jobs move to `cancel_request
 
 The only typed worker contract in this milestone is `llm.generate`. Additional contracts such as embeddings, quantization, conversion, or tool/workflow execution should be designed separately before implementation.
 
-## 12. Run Tests
+## 13. Run Tests
 
 Backend/API:
 

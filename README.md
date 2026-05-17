@@ -23,7 +23,7 @@ alembic -x db=controller upgrade controller@head
 alembic -x db=auth upgrade auth@head
 alembic -x db=audit upgrade audit@head
 alembic -x db=chat_sessions upgrade chat_sessions@head
-uv run python -m llama_manager.auth --config config.yaml create-admin robert
+uv run python -m llama_manager.auth --config config.yaml create-admin {user_name}
 LLAMA_MANAGER_CONFIG=config.yaml uvicorn llama_manager.main:app --host 0.0.0.0 --port 9000
 ```
 
@@ -52,7 +52,7 @@ export LLAMA_MANAGER_CONTROLLER_API_KEY=...
 scripts/linux_agent_smoke.py --config linux-agent.config.example.yaml
 ```
 
-The smoke test validates the Linux agent config and runtime paths, starts the agent with that config, checks the agent `/health`, and waits until the controller lists `linux-2080ti` with a fresh heartbeat. Add `--stop-after-check` if you want the script to stop the agent after a successful run.
+The smoke test validates the Linux agent config and runtime paths, starts the agent with that config, checks the agent `/health`, and waits until the controller lists the expected node with a fresh heartbeat. Add `--stop-after-check` if you want the script to stop the agent after a successful run.
 
 ## Configuration
 
@@ -88,7 +88,7 @@ nodes:
 Llama Manager fails closed until you create an admin key or configure `agent_api_key`. Create the first admin key from the terminal:
 
 ```bash
-uv run python -m llama_manager.auth --config config.yaml create-admin robert
+uv run python -m llama_manager.auth --config config.yaml create-admin {user_name}
 ```
 
 The command stores a hashed key in `log_dir/auth_store.db` and prints the raw API key once. Use that key in the UI login form, or send it as `X-Llama-Manager-Key` for API requests. To create more keys later, log in as an admin and use the auth key management UI/API.
@@ -116,16 +116,16 @@ Example:
 
 ```yaml
 mode: agent
-llama_server_bin: /Users/robertsmith/Apps/llama.cpp/build/bin/llama-server
-llama_cpp_dir: /Users/robertsmith/Apps/llama.cpp
-python_bin: /Users/robertsmith/Apps/llama.cpp/.venv/bin/python
+llama_server_bin: /Users/{user_name}/Apps/llama.cpp/build/bin/llama-server
+llama_cpp_dir: /Users/{user_name}/Apps/llama.cpp
+python_bin: /Users/{user_name}/Apps/llama.cpp/.venv/bin/python
 hf_models_dirs:
   - /Volumes/4TB/HFModels
 log_dir: ./logs
 
 models:
   qwen-coder:
-    path: /Users/robertsmith/models/qwen-coder.gguf
+    path: /Users/{user_name}/models/qwen-coder.gguf
     port: 8081
     ctx: 16384
     gpu_layers: 999
@@ -161,6 +161,41 @@ nodes:
     api_key: your-agent-api-key-if-enabled
     verify_tls: true
 ```
+
+### Raspberry Pi Controller Config
+
+If the Raspberry Pi is the always-on coordinator, run it in `controller` mode and point all agent machines at the Pi's URL. Use `raspberry-pi-controller.config.example.yaml` as a starting point:
+
+```yaml
+mode: controller
+log_dir: /home/{user_name}/llama-manager/logs
+
+controller_registration_key: ${LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY}
+node_heartbeat_timeout_seconds: 90
+
+controller_db_url: sqlite+pysqlite:////home/{user_name}/llama-manager/logs/controller_state.db
+auth_db_url: sqlite+pysqlite:////home/{user_name}/llama-manager/logs/auth_store.db
+audit_db_url: sqlite+pysqlite:////home/{user_name}/llama-manager/logs/audit_events.db
+chat_sessions_db_url: sqlite+pysqlite:////home/{user_name}/llama-manager/logs/chat_sessions.db
+
+nodes:
+  mac-mini:
+    url: http://MAC_MINI_IP:9137
+    api_key: ${LLAMA_MANAGER_MAC_MINI_AGENT_API_KEY}
+    verify_tls: true
+  linux-2080ti:
+    url: http://LINUX_2080TI_IP:9137
+    api_key: ${LLAMA_MANAGER_LINUX_2080TI_AGENT_API_KEY}
+    verify_tls: true
+```
+
+Start the Pi controller with:
+
+```bash
+LLAMA_MANAGER_CONFIG=raspberry-pi-controller.config.yaml uvicorn llama_manager.main:app --host 0.0.0.0 --port 9137
+```
+
+Agents should set `controller_url` to `http://RASPBERRY_PI_IP:9137` and send the same registration key through `controller_registration_key_outbound`.
 
 For full setup and troubleshooting, see [docs/how-to-use.md](docs/how-to-use.md) and [docs/windows-install.md](docs/windows-install.md).
 For a contributor-focused code map, see [docs/architecture.md](docs/architecture.md).

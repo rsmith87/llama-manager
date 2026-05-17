@@ -1,11 +1,11 @@
 mode: agent
 
 # Linux agent runtime paths. Adjust these if your Linux checkout/model paths differ.
-llama_server_bin: /home/robert/Apps/llama.cpp/build/bin/llama-server
-llama_cpp_dir: /home/robert/Apps/llama.cpp
-python_bin: /home/robert/Apps/llama.cpp/.venv/bin/python
+llama_server_bin: /home/{user_name}/Apps/llama.cpp/build/bin/llama-server
+llama_cpp_dir: /home/{user_name}/Apps/llama.cpp
+python_bin: /home/{user_name}/Apps/llama.cpp/.venv/bin/python
 hf_models_dirs:
-  - /home/robert/models/HFModels
+  - /home/{user_name}/models/HFModels
 log_dir: logs
 
 # Requests from the Mac controller to this Linux agent must send this value as
@@ -34,7 +34,7 @@ models: {}
 # Optional local model example:
 # models:
 #   qwen-coder:
-#     path: /home/robert/models/HFModels/qwen-coder/model.gguf
+#     path: /home/{user_name}/models/HFModels/qwen-coder/model.gguf
 #     port: 8081
 #     ctx: 16384
 #     gpu_layers: 999

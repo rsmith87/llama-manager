@@ -16,3 +16,5 @@ docs/complete
 docs/superpowers
 docs/todo
 llamacpp_handler.egg-info
+.env
+

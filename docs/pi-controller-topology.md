@@ -139,8 +139,8 @@ or controller API key and retry with `X-Llama-Manager-Key`.
 
 If a node is listed but not fresh, check that the agent has:
 
-- the Pi URL in `controller_url`
+- `controller_url: ${LLAMA_MANAGER_CONTROLLER_URL}` and the Pi URL in `.llama-manager.env`
 - the correct `node_name`
-- its LAN-reachable `agent_url`
+- `agent_url: ${LLAMA_MANAGER_AGENT_URL}` and its LAN-reachable URL in `.llama-manager.env`
 - the same registration key value the Pi expects
 - a running `scripts/start_agent.sh` process

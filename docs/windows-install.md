@@ -206,16 +206,17 @@ models:
 If you prefer agent-driven registration instead of maintaining the node list manually, add this to the Windows agent config:
 
 ```yaml
-controller_url: http://MAC_CONTROLLER_IP:9100
+controller_url: ${LLAMA_MANAGER_CONTROLLER_URL}
 node_name: windows-2080ti
-agent_url: http://WINDOWS_IP:9000
+agent_url: ${LLAMA_MANAGER_AGENT_URL}
 heartbeat_interval_seconds: 30
-controller_registration_key_outbound: shared-registration-key
+controller_registration_key_outbound: ${LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND}
 ```
 
 Set the same `controller_registration_key` on the controller. On startup, the agent registers itself and then sends heartbeats on the configured interval.
 
-For Mac/Linux agents, `scripts/onboard_agent.sh` writes these fields and
-`.llama-manager.env` automatically. For Windows, copy the controller
-registration key printed by `scripts/onboard_controller.sh` into
-`controller_registration_key_outbound`.
+For Mac/Linux agents, `scripts/onboard_agent.sh` writes these placeholder fields
+to the generated config and stores the real LAN URLs in `.llama-manager.env`.
+For Windows, set the matching environment variables locally and copy the
+controller registration key printed by `scripts/onboard_controller.sh` into
+`LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND`.

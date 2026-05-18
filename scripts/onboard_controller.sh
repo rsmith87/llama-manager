@@ -221,6 +221,7 @@ Start the controller:
   scripts/start_controller.sh
 
 Agents should use:
-  controller_url: http://<controller-host>:$PORT
+  export LLAMA_MANAGER_CONTROLLER_URL='http://<controller-host>:$PORT'
+  controller_url: \${LLAMA_MANAGER_CONTROLLER_URL}
   controller_registration_key_outbound: \${LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND}
 EOF

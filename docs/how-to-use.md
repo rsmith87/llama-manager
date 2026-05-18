@@ -53,7 +53,10 @@ scripts/start_agent.sh
 
 `scripts/onboard_agent.sh` creates an agent config, writes
 `.llama-manager.env`, generates `LLAMA_MANAGER_AGENT_API_KEY`, and prints the
-controller `nodes:` entry that must use that agent key.
+controller `nodes:` entry that must use that agent key. The generated config
+keeps `controller_url` and `agent_url` as environment placeholders; the real
+LAN URLs passed to `--controller-url` and `--agent-url` are written only to
+`.llama-manager.env`.
 
 To rotate keys later:
 
@@ -366,11 +369,11 @@ Agent config:
 
 ```yaml
 mode: agent
-controller_url: http://127.0.0.1:9100
+controller_url: ${LLAMA_MANAGER_CONTROLLER_URL}
 node_name: mac-agent
-agent_url: http://127.0.0.1:9000
-agent_api_key: local-agent-key
-controller_registration_key_outbound: local-agent-key
+agent_url: ${LLAMA_MANAGER_AGENT_URL}
+agent_api_key: ${LLAMA_MANAGER_AGENT_API_KEY}
+controller_registration_key_outbound: ${LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND}
 agent_worker_enabled: true
 agent_worker_poll_interval_seconds: 2
 agent_worker_max_jobs: 1
@@ -382,7 +385,8 @@ agent_worker_capacity:
 
 For a new worker agent, `scripts/onboard_agent.sh` creates the base agent
 config and `.llama-manager.env`; then enable `agent_worker_enabled` and add the
-worker labels/capacity fields in the generated config.
+worker labels/capacity fields in the generated config. Keep concrete LAN URLs
+in `.llama-manager.env`, not in the tracked agent config.
 
 Create a typed generation job on the controller:
 

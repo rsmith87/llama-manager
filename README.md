@@ -83,9 +83,11 @@ scripts/onboard_agent.sh \
   --agent-url "$LLAMA_MANAGER_AGENT_URL"
 ```
 
-The agent onboarding script writes `.llama-manager.env` with the agent API key,
-controller registration key, config path, host, and port. `scripts/start_agent.sh`
-and `scripts/stop_server.sh` source `.llama-manager.env` automatically.
+The agent onboarding script keeps `controller_url` and `agent_url` as
+environment placeholders in the generated config, and writes the real LAN URLs
+to `.llama-manager.env` alongside the agent API key, controller registration
+key, config path, host, and port. `scripts/start_agent.sh` and
+`scripts/stop_server.sh` source `.llama-manager.env` automatically.
 
 Regenerate a local key and print the matching update for the other machines:
 
@@ -276,7 +278,7 @@ Manual startup is also available:
 LLAMA_MANAGER_CONFIG=raspberry-pi-controller.config.yaml uvicorn llama_manager.main:app --host 0.0.0.0 --port 9137
 ```
 
-Agents should run `scripts/onboard_agent.sh --controller-url "$LLAMA_MANAGER_CONTROLLER_URL" --agent-url "$LLAMA_MANAGER_AGENT_URL"`, or manually set `controller_url` to `${LLAMA_MANAGER_CONTROLLER_URL}` and send the same registration key through `controller_registration_key_outbound`.
+Agents should run `scripts/onboard_agent.sh --controller-url "$LLAMA_MANAGER_CONTROLLER_URL" --agent-url "$LLAMA_MANAGER_AGENT_URL"`, or manually keep `controller_url` as `${LLAMA_MANAGER_CONTROLLER_URL}`, keep `agent_url` as `${LLAMA_MANAGER_AGENT_URL}`, and send the same registration key through `controller_registration_key_outbound`.
 
 For the current Raspberry Pi controller topology and smoke checks, see
 [docs/pi-controller-topology.md](docs/pi-controller-topology.md).

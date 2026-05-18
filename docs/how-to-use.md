@@ -2,6 +2,9 @@
 
 This guide shows how to run Llama Manager as local `llama.cpp` agents and, optionally, a central controller.
 
+For the current Raspberry Pi controller deployment snapshot and smoke checks,
+see [Raspberry Pi Controller Topology](pi-controller-topology.md).
+
 ## 1. Install
 
 From this project directory:
@@ -43,8 +46,8 @@ For an agent host:
 export LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND=...
 scripts/onboard_agent.sh \
   --node mac-agent \
-  --controller-url http://CONTROLLER_IP:9137 \
-  --agent-url http://AGENT_IP:9137
+  --controller-url "$LLAMA_MANAGER_CONTROLLER_URL" \
+  --agent-url "$LLAMA_MANAGER_AGENT_URL"
 scripts/start_agent.sh
 ```
 
@@ -56,7 +59,7 @@ To rotate keys later:
 
 ```bash
 scripts/regenerate_key.sh --type controller-registration
-scripts/regenerate_key.sh --type agent-api --node mac-agent --agent-url http://AGENT_IP:9137
+scripts/regenerate_key.sh --type agent-api --node mac-agent --agent-url "$LLAMA_MANAGER_AGENT_URL"
 ```
 
 The startup and stop scripts source `.llama-manager.env` automatically:
@@ -281,7 +284,7 @@ log_dir: ./logs
 
 nodes:
   windows-2080ti:
-    url: http://192.168.1.74:9000
+    url: ${LLAMA_MANAGER_WINDOWS_2080TI_AGENT_URL}
     api_key: windows-agent-key-if-enabled
     verify_tls: true
 
@@ -315,9 +318,9 @@ scripts/onboard_controller.sh \
 scripts/start_controller.sh
 ```
 
-The Pi template still contains placeholder agent IPs and per-node API-key
-environment variables. Fill those in after each agent onboarding script prints
-its generated `nodes:` block.
+The Pi template keeps agent URLs and per-node API keys in environment
+variables. Fill those in after each agent onboarding script prints its generated
+`nodes:` block.
 
 Pi controller config essentials:
 
@@ -329,16 +332,16 @@ node_heartbeat_timeout_seconds: 90
 
 nodes:
   mac-mini:
-    url: http://MAC_MINI_IP:9137
+    url: ${LLAMA_MANAGER_MAC_MINI_AGENT_URL}
     api_key: ${LLAMA_MANAGER_MAC_MINI_AGENT_API_KEY}
     verify_tls: true
   linux-2080ti:
-    url: http://LINUX_2080TI_IP:9137
+    url: ${LLAMA_MANAGER_LINUX_2080TI_AGENT_URL}
     api_key: ${LLAMA_MANAGER_LINUX_2080TI_AGENT_API_KEY}
     verify_tls: true
 ```
 
-On each agent, run `scripts/onboard_agent.sh --controller-url http://RASPBERRY_PI_IP:9137 --agent-url http://AGENT_IP:9137`. If the agent worker is enabled, make sure the agent's generated `LLAMA_MANAGER_AGENT_API_KEY` matches the corresponding `nodes.<name>.api_key` value on the Pi controller.
+On each agent, run `scripts/onboard_agent.sh --controller-url "$LLAMA_MANAGER_CONTROLLER_URL" --agent-url "$LLAMA_MANAGER_AGENT_URL"`. If the agent worker is enabled, make sure the agent's generated `LLAMA_MANAGER_AGENT_API_KEY` matches the corresponding `nodes.<name>.api_key` value on the Pi controller.
 
 ## 13. Enable Agent Worker Jobs
 

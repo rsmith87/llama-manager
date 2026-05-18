@@ -12,10 +12,10 @@ log_dir: logs
 # X-Llama-Manager-Key. Keep the real key outside the repo.
 agent_api_key: ${LLAMA_MANAGER_AGENT_API_KEY}
 
-# Agent heartbeat/registration back to the Mac mini controller.
-controller_url: http://192.168.1.104:9137
+# Agent heartbeat/registration back to the controller.
+controller_url: ${LLAMA_MANAGER_CONTROLLER_URL}
 node_name: linux-2080ti
-agent_url: http://192.168.1.120:9137
+agent_url: ${LLAMA_MANAGER_AGENT_URL}
 heartbeat_interval_seconds: 30
 controller_registration_key_outbound: ${LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND}
 

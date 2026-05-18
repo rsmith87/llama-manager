@@ -39,6 +39,6 @@ models:
 
 nodes:
   mac-mini:
-    url: http://127.0.0.1:9000
+    url: ${LLAMA_MANAGER_MAC_MINI_AGENT_URL}
   windows-2080ti:
-    url: http://192.168.1.74:9000
+    url: ${LLAMA_MANAGER_WINDOWS_2080TI_AGENT_URL}

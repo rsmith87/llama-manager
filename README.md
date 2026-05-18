@@ -30,8 +30,8 @@ pip install -e ".[dev]"
 export LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND=...
 scripts/onboard_agent.sh \
   --node linux-2080ti \
-  --controller-url http://CONTROLLER_IP:9137 \
-  --agent-url http://AGENT_IP:9137
+  --controller-url "$LLAMA_MANAGER_CONTROLLER_URL" \
+  --agent-url "$LLAMA_MANAGER_AGENT_URL"
 scripts/start_agent.sh
 ```
 
@@ -79,8 +79,8 @@ Onboard a fresh agent:
 export LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND=...
 scripts/onboard_agent.sh \
   --node linux-2080ti \
-  --controller-url http://CONTROLLER_IP:9137 \
-  --agent-url http://AGENT_IP:9137
+  --controller-url "$LLAMA_MANAGER_CONTROLLER_URL" \
+  --agent-url "$LLAMA_MANAGER_AGENT_URL"
 ```
 
 The agent onboarding script writes `.llama-manager.env` with the agent API key,
@@ -91,7 +91,7 @@ Regenerate a local key and print the matching update for the other machines:
 
 ```bash
 scripts/regenerate_key.sh --type controller-registration
-scripts/regenerate_key.sh --type agent-api --node linux-2080ti --agent-url http://AGENT_IP:9137
+scripts/regenerate_key.sh --type agent-api --node linux-2080ti --agent-url "$LLAMA_MANAGER_AGENT_URL"
 ```
 
 Script defaults:
@@ -140,7 +140,7 @@ nodes:
   mac-mini:
     url: http://127.0.0.1:9000
   windows-2080ti:
-    url: http://192.168.1.74:9000
+    url: ${LLAMA_MANAGER_WINDOWS_2080TI_AGENT_URL}
 ```
 
 ### First Admin Key
@@ -164,9 +164,9 @@ rotation scripts:
 
 ```bash
 scripts/onboard_controller.sh
-scripts/onboard_agent.sh --controller-url http://CONTROLLER_IP:9137 --agent-url http://AGENT_IP:9137
+scripts/onboard_agent.sh --controller-url "$LLAMA_MANAGER_CONTROLLER_URL" --agent-url "$LLAMA_MANAGER_AGENT_URL"
 scripts/regenerate_key.sh --type controller-registration
-scripts/regenerate_key.sh --type agent-api --node linux-2080ti --agent-url http://AGENT_IP:9137
+scripts/regenerate_key.sh --type agent-api --node linux-2080ti --agent-url "$LLAMA_MANAGER_AGENT_URL"
 ```
 
 For one-off manual values, generate a strong URL-safe value with:
@@ -231,7 +231,7 @@ nodes:
   mac-mini:
     url: http://127.0.0.1:9000
   windows-2080ti:
-    url: http://192.168.1.74:9000
+    url: ${LLAMA_MANAGER_WINDOWS_2080TI_AGENT_URL}
     api_key: your-agent-api-key-if-enabled
     verify_tls: true
 ```
@@ -261,11 +261,11 @@ chat_sessions_db_url: sqlite+pysqlite:////home/{user_name}/llama-manager/logs/ch
 
 nodes:
   mac-mini:
-    url: http://MAC_MINI_IP:9137
+    url: ${LLAMA_MANAGER_MAC_MINI_AGENT_URL}
     api_key: ${LLAMA_MANAGER_MAC_MINI_AGENT_API_KEY}
     verify_tls: true
   linux-2080ti:
-    url: http://LINUX_2080TI_IP:9137
+    url: ${LLAMA_MANAGER_LINUX_2080TI_AGENT_URL}
     api_key: ${LLAMA_MANAGER_LINUX_2080TI_AGENT_API_KEY}
     verify_tls: true
 ```
@@ -276,8 +276,10 @@ Manual startup is also available:
 LLAMA_MANAGER_CONFIG=raspberry-pi-controller.config.yaml uvicorn llama_manager.main:app --host 0.0.0.0 --port 9137
 ```
 
-Agents should run `scripts/onboard_agent.sh --controller-url http://RASPBERRY_PI_IP:9137 --agent-url http://AGENT_IP:9137`, or manually set `controller_url` to `http://RASPBERRY_PI_IP:9137` and send the same registration key through `controller_registration_key_outbound`.
+Agents should run `scripts/onboard_agent.sh --controller-url "$LLAMA_MANAGER_CONTROLLER_URL" --agent-url "$LLAMA_MANAGER_AGENT_URL"`, or manually set `controller_url` to `${LLAMA_MANAGER_CONTROLLER_URL}` and send the same registration key through `controller_registration_key_outbound`.
 
+For the current Raspberry Pi controller topology and smoke checks, see
+[docs/pi-controller-topology.md](docs/pi-controller-topology.md).
 For full setup and troubleshooting, see [docs/how-to-use.md](docs/how-to-use.md) and [docs/windows-install.md](docs/windows-install.md).
 For a contributor-focused code map, see [docs/architecture.md](docs/architecture.md).
 

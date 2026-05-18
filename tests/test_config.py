@@ -36,6 +36,21 @@ nodes:
     assert config.node_heartbeat_timeout_seconds == 90
 
 
+def test_example_network_configs_use_env_placeholders_for_lan_urls():
+    root = Path(__file__).resolve().parents[1]
+    config_files = [
+        root / "config.example.yaml",
+        root / "linux-agent.config.example.yaml",
+        root / "raspberry-pi-controller.config.example.yaml",
+    ]
+
+    for config_file in config_files:
+        text = config_file.read_text(encoding="utf-8")
+        assert "192.168." not in text, config_file.name
+        assert "MAC_MINI_IP" not in text, config_file.name
+        assert "LINUX_2080TI_IP" not in text, config_file.name
+
+
 def test_load_config_expands_env_var_placeholders_in_nested_values(tmp_path, monkeypatch):
     config_file = tmp_path / "config.yaml"
     config_file.write_text(

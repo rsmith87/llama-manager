@@ -22,13 +22,13 @@ controller_retention_days: 14
 controller_archive_retention_days: 30
 controller_archive_dir: /home/{user_name}/llama-manager/logs/archives
 
-# Agents managed by the Pi controller. Replace IP placeholders and keys.
+# Agents managed by the Pi controller. Keep URLs and keys outside the repo.
 nodes:
   mac-mini:
-    url: http://MAC_MINI_IP:9137
+    url: ${LLAMA_MANAGER_MAC_MINI_AGENT_URL}
     api_key: ${LLAMA_MANAGER_MAC_MINI_AGENT_API_KEY}
     verify_tls: true
   linux-2080ti:
-    url: http://LINUX_2080TI_IP:9137
+    url: ${LLAMA_MANAGER_LINUX_2080TI_AGENT_URL}
     api_key: ${LLAMA_MANAGER_LINUX_2080TI_AGENT_API_KEY}
     verify_tls: true

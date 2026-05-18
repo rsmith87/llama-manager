@@ -14,8 +14,10 @@ import {
   nodeEditFormDefaults,
   nodeEditMarkup,
   nodeSummary,
+  PROMPT_TEMPLATE_OPTIONS,
   sortModelsForDisplay,
   suggestedGgufModelName,
+  suggestedPromptTemplate,
 } from "/ui/nodes_view.js?v=nodes-edit-20260515";
 
 const state = {
@@ -877,10 +879,12 @@ function renderDownloads() {
 async function runDownloadAction({ downloadId, repoId, action }) {
   try {
     if (action === "logs") {
-      const payload = await api(`/downloads/${encodeURIComponent(downloadId)}/logs?lines=200`);
-      $("log-title").textContent = `download / ${repoId}`;
-      $("log-output").textContent = payload.text || "No download log output.";
-      openLogModal();
+      await streamLogsIntoModal({
+        title: `download / ${repoId}`,
+        streamPath: `/downloads/${encodeURIComponent(downloadId)}/logs/stream?lines=200`,
+        fallbackPath: `/downloads/${encodeURIComponent(downloadId)}/logs?lines=200`,
+        emptyText: "No download log output.",
+      });
       return;
     }
     if (action === "delete") {
@@ -1164,6 +1168,7 @@ function openGgufDetail(fileId) {
   }
   state.selectedGgufId = fileId;
   $("library-model-name").value = suggestedGgufModelName(file);
+  $("library-prompt-template").value = suggestedPromptTemplate(file);
   $("gguf-detail-title").textContent = file.filename;
   $("gguf-detail-body").innerHTML = ggufDetailMarkup(file);
   $("gguf-detail-add-button").disabled = Boolean(file.registered);
@@ -1187,6 +1192,14 @@ function ggufDetailMarkup(file) {
     ["File ID", file.id, true],
   ];
   return fields.map(([label, value, mono]) => `<div><span class="detail-label">${escapeHtml(label)}</span><span class="detail-value ${mono ? "mono" : ""}">${escapeHtml(value ?? "-")}</span></div>`).join("");
+}
+
+function renderPromptTemplateOptions() {
+  const select = $("library-prompt-template");
+  if (!select) return;
+  select.innerHTML = PROMPT_TEMPLATE_OPTIONS
+    .map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`)
+    .join("");
 }
 
 function renderNodes() {
@@ -1602,6 +1615,7 @@ async function addLibraryModel({ fileId, modelName }) {
   const gpuLayers = Number($("library-gpu-layers").value || 999);
   const reasoning = $("library-reasoning").value || "auto";
   const reasoningBudget = Number($("library-reasoning-budget").value || 2048);
+  const promptTemplate = $("library-prompt-template").value || null;
   const name = (modelName || "").trim();
   if (!name) {
     showToast("Enter a model name.");
@@ -1619,6 +1633,7 @@ async function addLibraryModel({ fileId, modelName }) {
         host: "0.0.0.0",
         reasoning,
         reasoning_budget: reasoningBudget,
+        prompt_template: promptTemplate,
       }),
     });
     $("library-port").value = String(port + 1);
@@ -2958,6 +2973,7 @@ setActivePage(window.location.hash.slice(1) || "dashboard");
 $("auth-login-button")?.addEventListener("click", () => void loginUi().then(() => refreshAll()).catch((e) => showToast(e.message)));
 $("auth-logout-button")?.addEventListener("click", () => void logoutUi());
 hydrateIcons();
+renderPromptTemplateOptions();
 applyChatPreset();
 renderChatDefaultsDiff();
 renderSettingsConfig();

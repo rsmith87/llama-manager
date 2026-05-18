@@ -22,7 +22,51 @@ pip install -e ".[dev]"
 
 For a Windows-only checklist and troubleshooting flow, see [Windows Install And Troubleshooting](windows-install.md).
 
-## 2. Create An Agent Config
+## 2. Script-First Setup
+
+For a controller host:
+
+```bash
+scripts/onboard_controller.sh
+scripts/start_server.sh
+```
+
+`scripts/onboard_controller.sh` creates `config.yaml` when needed, writes
+`.llama-manager.env`, generates `LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY`,
+runs migrations, and creates the first admin API key. Use
+`--skip-migrations` only when you want to handle migrations/admin-key creation
+manually.
+
+For an agent host:
+
+```bash
+export LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND=...
+scripts/onboard_agent.sh \
+  --node mac-agent \
+  --controller-url http://CONTROLLER_IP:9137 \
+  --agent-url http://AGENT_IP:9137
+scripts/start_server.sh
+```
+
+`scripts/onboard_agent.sh` creates an agent config, writes
+`.llama-manager.env`, generates `LLAMA_MANAGER_AGENT_API_KEY`, and prints the
+controller `nodes:` entry that must use that agent key.
+
+To rotate keys later:
+
+```bash
+scripts/regenerate_key.sh --type controller-registration
+scripts/regenerate_key.sh --type agent-api --node mac-agent --agent-url http://AGENT_IP:9137
+```
+
+The startup and stop scripts source `.llama-manager.env` automatically:
+
+```bash
+scripts/start_server.sh
+scripts/stop_server.sh
+```
+
+## 3. Manual Agent Config
 
 Start from:
 
@@ -65,7 +109,7 @@ hf_models_dir: /Volumes/4TB/HFModels
 
 If `hf_models_dirs` is present, it is used instead of the legacy single-root field.
 
-## 3. Create The First Admin Key
+## 4. Manual Admin Key
 
 Before creating admin keys or starting the service, apply migrations:
 
@@ -85,7 +129,10 @@ uv run python -m llama_manager.auth --config config.yaml create-admin {user_name
 
 The command stores only a hash in `log_dir/auth_store.db` and prints the raw key once. Use that key in the UI login form or as the `X-Llama-Manager-Key` header for API requests. There is no `dev` fallback login.
 
-## 4. Start An Agent
+`scripts/onboard_controller.sh` performs these migration and first-admin-key
+steps for fresh controller setup.
+
+## 5. Start An Agent
 
 ```bash
 LLAMA_MANAGER_CONFIG=config.yaml uvicorn llama_manager.main:app --host 0.0.0.0 --port 9000
@@ -111,7 +158,7 @@ scripts/start_server.sh
 scripts/stop_server.sh
 ```
 
-## 5. Control Models On An Agent
+## 6. Control Models On An Agent
 
 ```bash
 curl http://127.0.0.1:9000/models
@@ -127,7 +174,7 @@ The underlying OpenAI-compatible endpoint remains on the model port:
 curl http://127.0.0.1:8081/health
 ```
 
-## 6. Use Chat Features
+## 7. Use Chat Features
 
 Basic API call:
 
@@ -164,7 +211,7 @@ Useful chat endpoints:
 - `GET /chat/{model}/kv/capabilities`
 - `GET|POST|DELETE /chat/sessions...`
 
-## 7. Add Existing GGUFs As Runnable Models
+## 8. Add Existing GGUFs As Runnable Models
 
 Scan and register existing GGUF files:
 
@@ -181,7 +228,7 @@ curl -X POST http://127.0.0.1:9000/library/ggufs/{file_id}/add-model \
   }'
 ```
 
-## 8. Convert HF Models To GGUF
+## 9. Convert HF Models To GGUF
 
 Set config values on the agent with HF models:
 
@@ -203,7 +250,7 @@ curl "http://127.0.0.1:9000/conversions/qwen2.5-7b-instruct/logs?lines=200"
 
 If conversion logs show missing packages (for example `ModuleNotFoundError: No module named 'transformers'`), point `python_bin` at the correct llama.cpp venv Python.
 
-## 9. Quantize Existing GGUFs
+## 10. Quantize Existing GGUFs
 
 Use:
 
@@ -215,7 +262,18 @@ curl -X POST http://127.0.0.1:9000/quantizations/{file_id}/start \
 curl "http://127.0.0.1:9000/quantizations/{file_id}/logs?lines=200"
 ```
 
-## 10. Create A Controller Config (Optional)
+## 11. Create A Controller Config (Optional)
+
+For fresh controller setup, prefer the onboarding script:
+
+```bash
+scripts/onboard_controller.sh
+scripts/start_server.sh
+```
+
+The script generates `.llama-manager.env`, runs migrations, creates the first
+admin API key, and prints the registration key for agents. The manual config
+shape is:
 
 ```yaml
 mode: controller
@@ -237,19 +295,29 @@ Run controller (different port from local agent):
 LLAMA_MANAGER_CONFIG=controller.yaml uvicorn llama_manager.main:app --host 0.0.0.0 --port 9100
 ```
 
+If `controller.yaml` is recorded in `.llama-manager.env` as
+`LLAMA_MANAGER_CONFIG`, you can also use:
+
+```bash
+scripts/start_server.sh
+```
+
 Controller endpoints include node inventory/proxy plus orchestration (`/jobs`, node `/work/*`, stats, retention, archive export). In the UI, use the Nodes page to inspect registered agents, heartbeat freshness, reported models, and remote model Start/Stop/Restart/Logs actions.
 
-## 11. Run The Controller On A Raspberry Pi
+## 12. Run The Controller On A Raspberry Pi
 
 Raspberry Pi integration is a good fit for the always-on controller role. The Pi runs `mode: controller`, owns node inventory and durable orchestration state, and each agent machine points its `controller_url` at the Pi.
 
 ```bash
-cp raspberry-pi-controller.config.example.yaml raspberry-pi-controller.config.yaml
-export LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY=...
-export LLAMA_MANAGER_MAC_MINI_AGENT_API_KEY=...
-export LLAMA_MANAGER_LINUX_2080TI_AGENT_API_KEY=...
-LLAMA_MANAGER_CONFIG=raspberry-pi-controller.config.yaml uvicorn llama_manager.main:app --host 0.0.0.0 --port 9137
+scripts/onboard_controller.sh \
+  --config raspberry-pi-controller.config.yaml \
+  --template raspberry-pi-controller.config.example.yaml
+scripts/start_server.sh
 ```
+
+The Pi template still contains placeholder agent IPs and per-node API-key
+environment variables. Fill those in after each agent onboarding script prints
+its generated `nodes:` block.
 
 Pi controller config essentials:
 
@@ -270,9 +338,9 @@ nodes:
     verify_tls: true
 ```
 
-On each agent, set `controller_url: http://RASPBERRY_PI_IP:9137` and `controller_registration_key_outbound` to the same value as the Pi controller's `controller_registration_key`. If the agent worker is enabled, make sure the agent's `agent_api_key` matches the corresponding `nodes.<name>.api_key` value on the Pi controller.
+On each agent, run `scripts/onboard_agent.sh --controller-url http://RASPBERRY_PI_IP:9137 --agent-url http://AGENT_IP:9137`. If the agent worker is enabled, make sure the agent's generated `LLAMA_MANAGER_AGENT_API_KEY` matches the corresponding `nodes.<name>.api_key` value on the Pi controller.
 
-## 12. Enable Agent Worker Jobs
+## 13. Enable Agent Worker Jobs
 
 The controller owns durable jobs. Agents execute jobs only when the worker is explicitly enabled.
 
@@ -308,6 +376,10 @@ agent_worker_labels:
 agent_worker_capacity:
   vram_gb: 24
 ```
+
+For a new worker agent, `scripts/onboard_agent.sh` creates the base agent
+config and `.llama-manager.env`; then enable `agent_worker_enabled` and add the
+worker labels/capacity fields in the generated config.
 
 Create a typed generation job on the controller:
 
@@ -354,7 +426,7 @@ Queued jobs cancel immediately. Assigned or running jobs move to `cancel_request
 
 The only typed worker contract in this milestone is `llm.generate`. Additional contracts such as embeddings, quantization, conversion, or tool/workflow execution should be designed separately before implementation.
 
-## 13. Run Tests
+## 14. Run Tests
 
 Backend/API:
 
@@ -376,13 +448,13 @@ Production UI telemetry helpers are in:
 llama_manager/ui/chat_telemetry.js
 ```
 
-## 13. Alembic-Managed Persistence
+## 15. Alembic-Managed Persistence
 
 Legacy sqlite store code paths were removed after migration parity validation.
 The app now always uses SQLAlchemy-managed persistence implementations across
 all databases.
 
-Safe startup procedure:
+Safe startup procedure when not using `scripts/onboard_controller.sh`:
 
 1. Run migrations for all targets:
 ```bash
@@ -391,7 +463,8 @@ alembic -x db=auth upgrade auth@head
 alembic -x db=audit upgrade audit@head
 alembic -x db=chat_sessions upgrade chat_sessions@head
 ```
-2. Start the app normally.
+2. Start the app normally, or use `scripts/start_server.sh` if
+   `.llama-manager.env` points at the right config.
 3. Run focused smoke checks for auth, audit, chat sessions, and jobs.
 
 Rollback procedure:

@@ -5,6 +5,7 @@ __pycache__/
 logs/
 config.yaml
 .llama_manager.pid
+.llama-manager.env
 .specstory
 .vscode
 .playwright-mcp

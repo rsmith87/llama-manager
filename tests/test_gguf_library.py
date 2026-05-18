@@ -48,6 +48,7 @@ def test_gguf_library_adds_file_as_runtime_model(tmp_path):
         host="0.0.0.0",
         reasoning="auto",
         reasoning_budget=2048,
+        prompt_template="gemma",
         favorite=False,
     )
 
@@ -60,11 +61,13 @@ def test_gguf_library_adds_file_as_runtime_model(tmp_path):
         "host": "0.0.0.0",
         "reasoning": "auto",
         "reasoning_budget": 2048,
+        "prompt_template": "gemma",
         "favorite": False
     }
     assert config.models["gemma-local"].path == str(gguf_path)
     assert config.models["gemma-local"].reasoning == "auto"
     assert config.models["gemma-local"].reasoning_budget == 2048
+    assert config.models["gemma-local"].prompt_template == "gemma"
 
 
 def test_gguf_library_lists_files_from_multiple_roots(tmp_path):
@@ -116,6 +119,7 @@ models: {{}}
         host="0.0.0.0",
         reasoning="auto",
         reasoning_budget=2048,
+        prompt_template="llama3",
     )
 
     reloaded = load_config(config_path)
@@ -123,6 +127,7 @@ models: {{}}
     assert reloaded.models["gemma-local"].path == str(gguf_path)
     assert reloaded.models["gemma-local"].reasoning == "auto"
     assert reloaded.models["gemma-local"].reasoning_budget == 2048
+    assert reloaded.models["gemma-local"].prompt_template == "llama3"
 
 
 def test_gguf_library_deletes_file_and_unregisters_model(tmp_path):

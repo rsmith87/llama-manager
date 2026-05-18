@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from llama_manager.api.dependencies import get_download_manager
 from llama_manager.core.model_assets.downloads import DownloadManager
+from llama_manager.core.runtime.log_stream import stream_log_file
 
 
 class StartDownloadRequest(BaseModel):
@@ -57,6 +59,19 @@ def download_logs(download_id: str, lines: int = 200, manager: DownloadManager =
         return {"id": download_id, "text": manager.tail_logs(download_id, lines=lines)}
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/{download_id}/logs/stream")
+def stream_download_logs(
+    download_id: str,
+    lines: int = 200,
+    manager: DownloadManager = Depends(get_download_manager),
+):
+    try:
+        log_path = manager.log_path(download_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return StreamingResponse(stream_log_file(log_path, lines=lines), media_type="text/event-stream")
 
 
 @router.delete("/{download_id}")

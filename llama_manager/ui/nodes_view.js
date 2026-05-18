@@ -37,6 +37,30 @@ export function suggestedGgufModelName(file) {
   return String(file?.name || file?.model_dir || "").trim();
 }
 
+export const PROMPT_TEMPLATE_OPTIONS = [
+  { value: "", label: "Auto / server default" },
+  { value: "llama3", label: "Llama 3" },
+  { value: "llama-3", label: "Llama 3 (alias)" },
+  { value: "chatml", label: "ChatML" },
+  { value: "qwen", label: "Qwen (ChatML)" },
+  { value: "gemma", label: "Gemma" },
+  { value: "gpt-oss", label: "GPT-OSS (ChatML)" },
+  { value: "gptoss", label: "GPTOSS (ChatML alias)" },
+];
+
+export function suggestedPromptTemplate(file) {
+  const text = [file?.name, file?.model_dir, file?.filename, file?.path]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  if (text.includes("gpt-oss")) return "gpt-oss";
+  if (text.includes("llama-3") || text.includes("llama3")) return "llama3";
+  if (text.includes("gemma")) return "gemma";
+  if (text.includes("qwen")) return "qwen";
+  if (text.includes("chatml")) return "chatml";
+  return "";
+}
+
 export function sortModelsForDisplay(models) {
   return [...(Array.isArray(models) ? models : [])].sort((a, b) => {
     const favoriteDelta = Number(Boolean(b?.favorite)) - Number(Boolean(a?.favorite));

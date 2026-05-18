@@ -17,6 +17,7 @@ class AddModelRequest(BaseModel):
     host: str = "0.0.0.0"
     reasoning: Literal["on", "off", "auto"] | None = None
     reasoning_budget: int | None = None
+    prompt_template: str | None = None
 
 
 router = APIRouter(prefix="/library")
@@ -43,6 +44,7 @@ def add_gguf_model(
             host=body.host,
             reasoning=body.reasoning,
             reasoning_budget=body.reasoning_budget,
+            prompt_template=body.prompt_template,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

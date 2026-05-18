@@ -93,6 +93,10 @@ class DownloadManager:
         with log_path.open("r", encoding="utf-8", errors="replace") as handle:
             return "".join(handle.readlines()[-requested:])
 
+    def log_path(self, download_id: str) -> Path:
+        record = self.status(download_id)
+        return Path(str(record["log_path"]))
+
     def history(self, *, status: str | None = None, limit: int = 100) -> list[dict[str, object]]:
         records = self.store.list_downloads(status=status, limit=limit)
         return [self.status(str(item["id"])) for item in records]

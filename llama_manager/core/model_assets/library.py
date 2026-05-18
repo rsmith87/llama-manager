@@ -30,6 +30,7 @@ class GgufLibrary:
         host: str,
         reasoning: ReasoningMode | None = None,
         reasoning_budget: int | None = None,
+        prompt_template: str | None = None,
         favorite: bool | None = False
     ) -> dict[str, object]:
         path = self._path_for_id(file_id)
@@ -47,6 +48,7 @@ class GgufLibrary:
             host=host,
             reasoning=reasoning,
             reasoning_budget=reasoning_budget,
+            prompt_template=prompt_template,
             favorite=favorite
         )
         if self.config.config_source not in {"(defaults)", "(in-memory)"}:
@@ -61,6 +63,7 @@ class GgufLibrary:
             "host": model.host,
             "reasoning": model.reasoning,
             "reasoning_budget": model.reasoning_budget,
+            "prompt_template": model.prompt_template,
             "favorite": model.favorite,
         }
 

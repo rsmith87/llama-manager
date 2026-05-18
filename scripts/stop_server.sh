@@ -2,6 +2,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_FILE="${LLAMA_MANAGER_ENV_FILE:-$ROOT_DIR/.llama-manager.env}"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
 PID_FILE="${LLAMA_MANAGER_PID_FILE:-$ROOT_DIR/.llama_manager.pid}"
 
 if [[ ! -f "$PID_FILE" ]]; then
@@ -31,4 +38,3 @@ echo "Process $PID did not stop after SIGTERM; sending SIGKILL."
 kill -9 "$PID" 2>/dev/null || true
 rm -f "$PID_FILE"
 echo "Stopped Llama Manager process $PID."
-

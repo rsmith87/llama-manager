@@ -2,6 +2,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_FILE="${LLAMA_MANAGER_ENV_FILE:-$ROOT_DIR/.llama-manager.env}"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
 HOST="${LLAMA_MANAGER_HOST:-0.0.0.0}"
 PORT="${LLAMA_MANAGER_PORT:-9137}"
 DEFAULT_CONFIG="$ROOT_DIR/config.example.yaml"

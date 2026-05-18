@@ -39,6 +39,15 @@ Default target when `-x db=` is omitted is `controller`. Use target-qualified he
 
 ## Fresh install workflow
 
+For normal controller setup, prefer:
+
+```bash
+scripts/onboard_controller.sh
+```
+
+That script runs all fresh-install migration targets before creating the first
+admin API key. Run the commands below only when handling migrations manually.
+
 Run this once per target database:
 
 ```bash

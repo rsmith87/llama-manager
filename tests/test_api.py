@@ -156,6 +156,7 @@ class StubGgufLibrary:
         host,
         reasoning=None,
         reasoning_budget=None,
+        prompt_template=None,
     ):
         return {
             "name": name,
@@ -166,6 +167,7 @@ class StubGgufLibrary:
             "host": host,
             "reasoning": reasoning,
             "reasoning_budget": reasoning_budget,
+            "prompt_template": prompt_template,
         }
 
     def delete_file(self, file_id):
@@ -538,6 +540,44 @@ def test_quantization_routes():
     assert client.post("/quantizations/quant-abc/start", json={"type": "Q5_K_M"}).json()["running"] is True
     assert client.get("/quantizations/quant-abc").json()["output_path"].endswith("model-Q4_K_M.gguf")
     assert client.get("/quantizations/quant-abc/logs").json()["text"] == "quant log\n"
+
+
+def test_download_log_stream_route_replays_existing_log(tmp_path, monkeypatch):
+    from llama_manager.api.routes import downloads as download_routes
+
+    log_path = tmp_path / "logs" / "downloads" / "hf-qwen.log"
+    log_path.parent.mkdir(parents=True)
+    log_path.write_text("first\nsecond\n", encoding="utf-8")
+    streamed = {}
+
+    async def fake_stream_log_file(path, lines=200):
+        streamed["path"] = path
+        streamed["lines"] = lines
+        yield 'event: chunk\ndata: {"text":"second\\n"}\n\n'
+
+    monkeypatch.setattr(download_routes, "stream_log_file", fake_stream_log_file)
+    app = create_app(
+        config=load_config({"mode": "agent", "log_dir": str(tmp_path / "logs")}),
+        process_manager=StubProcessManager(),
+        conversion_manager=StubConversionManager(),
+        gguf_library=StubGgufLibrary(),
+    )
+    record = app.state.model_download_store.create_download(
+        repo_id="Qwen/Qwen2.5",
+        revision=None,
+        local_path=str(tmp_path / "models" / "Qwen__Qwen2.5"),
+        command="hf download Qwen/Qwen2.5",
+        log_path=str(log_path),
+        triggered_by="test",
+    )
+    client = TestClient(app)
+
+    with client.stream("GET", f"/downloads/{record['id']}/logs/stream?lines=1") as response:
+        assert response.headers["content-type"].startswith("text/event-stream")
+        first_event = response.read().decode()
+
+    assert streamed == {"path": log_path, "lines": 1}
+    assert 'event: chunk\ndata: {"text":"second\\n"}\n\n' in first_event
 
 
 def test_chat_route_requires_running_model():
@@ -1549,12 +1589,14 @@ def test_gguf_library_routes():
             "host": "0.0.0.0",
             "reasoning": "auto",
             "reasoning_budget": 2048,
+            "prompt_template": "gemma",
         },
     )
     assert response.status_code == 200
     assert response.json()["name"] == "gemma-local"
     assert response.json()["reasoning"] == "auto"
     assert response.json()["reasoning_budget"] == 2048
+    assert response.json()["prompt_template"] == "gemma"
 
     deleted = client.delete("/library/ggufs/abc")
     assert deleted.status_code == 200

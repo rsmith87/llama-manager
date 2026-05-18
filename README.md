@@ -11,6 +11,36 @@ The project started agent-first, but now includes a richer controller surface fo
 
 ## Quick Start
 
+Script-first setup for a controller:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+scripts/onboard_controller.sh
+scripts/start_server.sh
+```
+
+Script-first setup for an agent:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+export LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND=...
+scripts/onboard_agent.sh \
+  --node linux-2080ti \
+  --controller-url http://CONTROLLER_IP:9137 \
+  --agent-url http://AGENT_IP:9137
+scripts/start_server.sh
+```
+
+The onboarding scripts write local secrets to `.llama-manager.env`, which is
+ignored by git. `scripts/start_server.sh` and `scripts/stop_server.sh` source
+that file automatically.
+
+Manual setup remains available:
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -32,6 +62,37 @@ Or use the helper scripts:
 ```bash
 scripts/start_server.sh
 scripts/stop_server.sh
+```
+
+Onboard a fresh controller without manually copying config or generating keys:
+
+```bash
+scripts/onboard_controller.sh
+```
+
+The controller onboarding script writes local secrets to `.llama-manager.env`,
+including `LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY` and the first generated
+admin API key when migrations are enabled.
+
+Onboard a fresh agent:
+
+```bash
+export LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY_OUTBOUND=...
+scripts/onboard_agent.sh \
+  --node linux-2080ti \
+  --controller-url http://CONTROLLER_IP:9137 \
+  --agent-url http://AGENT_IP:9137
+```
+
+The agent onboarding script writes `.llama-manager.env` with the agent API key,
+controller registration key, config path, host, and port. `scripts/start_server.sh`
+and `scripts/stop_server.sh` source `.llama-manager.env` automatically.
+
+Regenerate a local key and print the matching update for the other machines:
+
+```bash
+scripts/regenerate_key.sh --type controller-registration
+scripts/regenerate_key.sh --type agent-api --node linux-2080ti --agent-url http://AGENT_IP:9137
 ```
 
 Script defaults:
@@ -85,7 +146,11 @@ nodes:
 
 ### First Admin Key
 
-Llama Manager fails closed until you create an admin key or configure `agent_api_key`. Create the first admin key from the terminal:
+Llama Manager fails closed until you create an admin key or configure
+`agent_api_key`. `scripts/onboard_controller.sh` creates the first admin key
+for fresh controller setup and stores it in `.llama-manager.env`.
+
+For manual setup, create the first admin key from the terminal:
 
 ```bash
 uv run python -m llama_manager.auth --config config.yaml create-admin {user_name}
@@ -95,7 +160,17 @@ The command stores a hashed key in `log_dir/auth_store.db` and prints the raw AP
 
 There is no built-in `dev` login fallback. For local development, create a throwaway admin key with the same command.
 
-For static shared secrets in agent/controller config, generate a strong URL-safe value with:
+For static shared secrets in agent/controller config, prefer the onboarding or
+rotation scripts:
+
+```bash
+scripts/onboard_controller.sh
+scripts/onboard_agent.sh --controller-url http://CONTROLLER_IP:9137 --agent-url http://AGENT_IP:9137
+scripts/regenerate_key.sh --type controller-registration
+scripts/regenerate_key.sh --type agent-api --node linux-2080ti --agent-url http://AGENT_IP:9137
+```
+
+For one-off manual values, generate a strong URL-safe value with:
 
 ```bash
 scripts/generate_api_key.py
@@ -166,6 +241,13 @@ nodes:
 
 If the Raspberry Pi is the always-on coordinator, run it in `controller` mode and point all agent machines at the Pi's URL. Use `raspberry-pi-controller.config.example.yaml` as a starting point:
 
+```bash
+scripts/onboard_controller.sh \
+  --config raspberry-pi-controller.config.yaml \
+  --template raspberry-pi-controller.config.example.yaml
+scripts/start_server.sh
+```
+
 ```yaml
 mode: controller
 log_dir: /home/{user_name}/llama-manager/logs
@@ -189,13 +271,13 @@ nodes:
     verify_tls: true
 ```
 
-Start the Pi controller with:
+Manual startup is also available:
 
 ```bash
 LLAMA_MANAGER_CONFIG=raspberry-pi-controller.config.yaml uvicorn llama_manager.main:app --host 0.0.0.0 --port 9137
 ```
 
-Agents should set `controller_url` to `http://RASPBERRY_PI_IP:9137` and send the same registration key through `controller_registration_key_outbound`.
+Agents should run `scripts/onboard_agent.sh --controller-url http://RASPBERRY_PI_IP:9137 --agent-url http://AGENT_IP:9137`, or manually set `controller_url` to `http://RASPBERRY_PI_IP:9137` and send the same registration key through `controller_registration_key_outbound`.
 
 For full setup and troubleshooting, see [docs/how-to-use.md](docs/how-to-use.md) and [docs/windows-install.md](docs/windows-install.md).
 For a contributor-focused code map, see [docs/architecture.md](docs/architecture.md).

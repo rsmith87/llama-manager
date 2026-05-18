@@ -66,6 +66,11 @@ YAML accepts unquoted Windows paths like `D:\HFModels\model.gguf`. If a path con
 
 ## 4. Start The Windows Agent
 
+On Mac/Linux agents, `scripts/onboard_agent.sh` and `scripts/start_server.sh`
+handle config, keys, and startup. On Windows, the supported path is still
+PowerShell/manual config unless you run the repository from a Bash-compatible
+environment such as Git Bash or WSL.
+
 PowerShell environment variables only apply to the current terminal:
 
 ```powershell
@@ -100,6 +105,18 @@ New-NetFirewallRule -DisplayName "llama-server 8080" -Direction Inbound -Action 
 
 ## 6. Configure The Mac Controller
 
+On the Mac controller, prefer the onboarding/start scripts:
+
+```bash
+scripts/onboard_controller.sh
+scripts/start_server.sh
+```
+
+When the Windows agent key changes, update the Mac controller node entry with
+the value printed by the Windows/manual setup or by
+`scripts/regenerate_key.sh --type agent-api` if the key was rotated from a
+Bash-capable environment.
+
 On the Mac controller, point the Windows node at the Windows machine IP:
 
 ```yaml
@@ -120,6 +137,12 @@ Start the controller on a different port than any local Mac agent:
 
 ```bash
 LLAMA_MANAGER_CONFIG=controller.yaml uvicorn llama_manager.main:app --host 0.0.0.0 --port 9100
+```
+
+If `.llama-manager.env` points at the controller config, use:
+
+```bash
+scripts/start_server.sh
 ```
 
 ## 7. Common Causes Of Mac Paths In The UI
@@ -191,3 +214,8 @@ controller_registration_key_outbound: shared-registration-key
 ```
 
 Set the same `controller_registration_key` on the controller. On startup, the agent registers itself and then sends heartbeats on the configured interval.
+
+For Mac/Linux agents, `scripts/onboard_agent.sh` writes these fields and
+`.llama-manager.env` automatically. For Windows, copy the controller
+registration key printed by `scripts/onboard_controller.sh` into
+`controller_registration_key_outbound`.

@@ -5,8 +5,10 @@ import {
   nodeSummary,
   nodeEditFormDefaults,
   nodeEditMarkup,
+  PROMPT_TEMPLATE_OPTIONS,
   sortModelsForDisplay,
   suggestedGgufModelName,
+  suggestedPromptTemplate,
 } from "../../llama_manager/ui/nodes_view.js";
 
 const nodes = [
@@ -90,6 +92,27 @@ describe("nodes view helpers", () => {
       }),
     ).toBe("qwen3-q4-k-m");
     expect(suggestedGgufModelName({ model_dir: "qwen3" })).toBe("qwen3");
+  });
+
+  it("infers GGUF prompt templates from model names", () => {
+    expect(suggestedPromptTemplate({ name: "Meta-Llama-3.1-8B-Instruct" })).toBe("llama3");
+    expect(suggestedPromptTemplate({ model_dir: "gemma-3-4b-it" })).toBe("gemma");
+    expect(suggestedPromptTemplate({ filename: "gpt-oss-20b-Q4_K_M.gguf" })).toBe("gpt-oss");
+    expect(suggestedPromptTemplate({ name: "Qwen2.5-Coder-Instruct" })).toBe("qwen");
+    expect(suggestedPromptTemplate({ name: "mistral-7b" })).toBe("");
+  });
+
+  it("lists the backend default prompt template aliases for GGUF imports", () => {
+    expect(PROMPT_TEMPLATE_OPTIONS.map((option) => option.value)).toEqual([
+      "",
+      "llama3",
+      "llama-3",
+      "chatml",
+      "qwen",
+      "gemma",
+      "gpt-oss",
+      "gptoss",
+    ]);
   });
 
   it("sorts favorite models first, then by name", () => {

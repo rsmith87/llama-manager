@@ -19,3 +19,4 @@ docs/todo
 llamacpp_handler.egg-info
 .env
 .llama_manager_agent.pid
+frontend-tests/node_modules

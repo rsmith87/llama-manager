@@ -19,6 +19,10 @@ import {
   suggestedGgufModelName,
   suggestedPromptTemplate,
 } from "/ui/nodes_view.js?v=nodes-edit-20260515";
+import {
+  buildThreadMetadata,
+  threadEventsToChatMessages,
+} from "/ui/chat_threads.js";
 
 const state = {
   health: null,
@@ -48,6 +52,8 @@ const state = {
   authRole: "",
   selectedGgufId: null,
   selectedChatSessionId: "",
+  activeThreadId: "",
+  threadMode: "direct",
   logAbortController: null,
 };
 
@@ -219,6 +225,7 @@ async function loginUi() {
   state.authRole = payload.role || "operator";
   localStorage.setItem("lm_ui_token", state.authToken);
   $("auth-user").textContent = `Logged in: ${state.authUser} (${state.authRole})`;
+  renderThreadAuthControls();
   await writeAuditEvent({ actor: state.authUser, event_type: "auth_login", dry_run: false, target: state.authUser, route: "auth", payload: { role: state.authRole } });
 }
 
@@ -231,8 +238,10 @@ async function logoutUi() {
   }
   state.authToken = "";
   state.authUser = "";
+  state.authRole = "";
   localStorage.removeItem("lm_ui_token");
   $("auth-user").textContent = "Not logged in";
+  renderThreadAuthControls();
 }
 
 async function bootstrapAuth() {
@@ -242,10 +251,13 @@ async function bootstrapAuth() {
     state.authUser = me.username || "";
     state.authRole = me.role || "operator";
     $("auth-user").textContent = `Logged in: ${state.authUser} (${state.authRole})`;
+    renderThreadAuthControls();
   } catch (_error) {
     state.authToken = "";
+    state.authRole = "";
     localStorage.removeItem("lm_ui_token");
     $("auth-user").textContent = "Not logged in";
+    renderThreadAuthControls();
   }
 }
 
@@ -951,7 +963,7 @@ function renderChatModelOptions() {
   const availableModels = Array.from(modelsByName.values());
   if (!availableModels.length) {
     select.innerHTML = `<option value="">No configured models</option>`;
-    $("send-chat-button").disabled = true;
+    $("send-chat-button").disabled = !isThreadMode();
     $("chat-state").textContent = "No configured models";
     return;
   }
@@ -1697,6 +1709,10 @@ async function sendChat() {
     showToast("Wait for the current chat response to finish.");
     return;
   }
+  if (isThreadMode()) {
+    await sendThreadMessage();
+    return;
+  }
   const model = $("chat-model").value;
   const target = $("chat-target").value || "auto";
   const content = $("chat-input").value.trim();
@@ -1800,6 +1816,177 @@ async function sendChat() {
     $("chat-stop-button").disabled = true;
     $("chat-regenerate-button").disabled = !state.lastUserPrompt;
     $("chat-state").textContent = "Ready";
+  }
+}
+
+function isThreadMode() {
+  return ($("chat-mode")?.value || "direct") === "thread";
+}
+
+function currentThreadMetadata() {
+  return buildThreadMetadata({
+    app: $("thread-app")?.value,
+    purpose: $("thread-purpose")?.value,
+    priority: $("thread-priority")?.value,
+    requestType: $("thread-request-type")?.value,
+  });
+}
+
+async function createThreadFromUi() {
+  if (state.chatPending) {
+    showToast("Wait for the current chat response to finish.");
+    return;
+  }
+  const payload = {
+    title: ($("chat-session-name")?.value || "").trim() || null,
+    default_model: $("chat-model")?.value || null,
+    metadata: currentThreadMetadata(),
+  };
+  const thread = await api("/threads", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  state.activeThreadId = thread.id;
+  $("chat-thread-id").value = thread.id;
+  $("thread-route-detail").textContent = JSON.stringify(
+    { id: thread.id, metadata: thread.metadata, default_model: thread.default_model },
+    null,
+    2
+  );
+  state.chatMessages = [];
+  renderChatTranscript();
+  $("chat-state").textContent = "Thread ready";
+  showToast("Thread created");
+}
+
+async function ensureThreadForSend() {
+  if (!state.activeThreadId) {
+    await createThreadFromUi();
+  }
+  return state.activeThreadId;
+}
+
+async function sendThreadMessage() {
+  const content = $("chat-input").value.trim();
+  if (!content) {
+    showToast("Enter a prompt first.");
+    return;
+  }
+  const threadId = await ensureThreadForSend();
+  if (!threadId) return;
+
+  const pendingMessage = { role: "assistant", content: "", pending: true, routeMeta: { target: "controller" } };
+  state.lastUserPrompt = content;
+  state.chatMessages.push({ role: "user", content, threadEventType: "user_message" }, pendingMessage);
+  state.chatPending = true;
+  $("chat-input").value = "";
+  renderChatTranscript();
+  $("send-chat-button").disabled = true;
+  $("chat-stop-button").disabled = true;
+  $("chat-regenerate-button").disabled = true;
+  $("chat-state").textContent = "Routing through controller...";
+
+  try {
+    const response = await api(`/threads/${encodeURIComponent(threadId)}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        role: "user",
+        content,
+        model: $("chat-model")?.value || null,
+        target: $("chat-target")?.value || "auto",
+        metadata: currentThreadMetadata(),
+      }),
+    });
+    pendingMessage.content = response.message?.content || "(empty response)";
+    pendingMessage.pending = false;
+    pendingMessage.routeMeta = routeDecisionToMeta(response.route);
+    await refreshThreadEvents();
+  } catch (error) {
+    pendingMessage.role = "error";
+    pendingMessage.content = error.message;
+    pendingMessage.pending = false;
+  } finally {
+    state.chatPending = false;
+    renderChatTranscript();
+    $("send-chat-button").disabled = false;
+    $("chat-regenerate-button").disabled = !state.lastUserPrompt;
+    $("chat-state").textContent = state.activeThreadId ? `Thread ${state.activeThreadId.slice(0, 8)}` : "Ready";
+  }
+}
+
+async function refreshThreadEvents() {
+  const threadId = state.activeThreadId || ($("chat-thread-id")?.value || "").trim();
+  if (!threadId) {
+    showToast("Create a thread first.");
+    return;
+  }
+  state.activeThreadId = threadId;
+  $("chat-thread-id").value = threadId;
+  const includeInternal = Boolean($("thread-include-internal")?.checked && state.authRole === "admin");
+  const query = includeInternal ? "?include_internal=true" : "";
+  const events = await api(`/threads/${encodeURIComponent(threadId)}/events${query}`);
+  state.chatMessages = threadEventsToChatMessages(events);
+  renderThreadRouteDetail(events);
+  renderChatTranscript();
+}
+
+function routeDecisionToMeta(route) {
+  if (!route) return { target: "controller" };
+  return {
+    model: route.model || "",
+    target: route.node ? `node:${route.node}` : "controller",
+    resolved: route.node || "",
+    reason: route.reason || "",
+  };
+}
+
+function renderThreadRouteDetail(events = []) {
+  const detail = $("thread-route-detail");
+  if (!detail) return;
+  const lastRouted = [...events].reverse().find((event) => event.route || event.event_type === "routing_decision");
+  if (!lastRouted) {
+    detail.textContent = state.activeThreadId ? `Thread ${state.activeThreadId}` : "No thread created.";
+    return;
+  }
+  detail.textContent = JSON.stringify(
+    {
+      thread_id: state.activeThreadId,
+      event_type: lastRouted.event_type,
+      route: lastRouted.route,
+      node: lastRouted.agent_node,
+      model: lastRouted.model,
+    },
+    null,
+    2
+  );
+}
+
+function applyChatModeUi() {
+  state.threadMode = $("chat-mode")?.value || "direct";
+  const threadControls = $("thread-controls");
+  if (threadControls) {
+    threadControls.hidden = state.threadMode !== "thread";
+    threadControls.style.display = state.threadMode === "thread" ? "grid" : "none";
+  }
+  const threadNew = $("thread-new-button");
+  const threadRefresh = $("thread-refresh-button");
+  if (threadNew) threadNew.hidden = state.threadMode !== "thread";
+  if (threadRefresh) threadRefresh.hidden = state.threadMode !== "thread";
+  renderThreadAuthControls();
+  $("chat-state").textContent = state.threadMode === "thread"
+    ? state.activeThreadId ? `Thread ${state.activeThreadId.slice(0, 8)}` : "Thread mode ready"
+    : "Ready";
+}
+
+function renderThreadAuthControls() {
+  const label = $("thread-internal-label");
+  if (!label) return;
+  const isAdmin = state.authRole === "admin";
+  label.hidden = !isAdmin;
+  if (!isAdmin && $("thread-include-internal")) {
+    $("thread-include-internal").checked = false;
   }
 }
 
@@ -1959,6 +2146,9 @@ function clearChat() {
     return;
   }
   clearActiveChatSessionSelection();
+  state.activeThreadId = "";
+  if ($("chat-thread-id")) $("chat-thread-id").value = "";
+  if ($("thread-route-detail")) $("thread-route-detail").textContent = "No thread created.";
   state.chatMessages = [];
   renderChatTranscript();
   showToast("Started a new chat");
@@ -1995,6 +2185,7 @@ function renderRouteMeta(message) {
     `model: ${meta.model}`,
     `target: ${meta.target}`,
     meta.resolved ? `via: ${meta.resolved}` : null,
+    meta.reason ? `reason: ${meta.reason}` : null,
     message.telemetry?.tokensPerSecond != null ? `tok/s: ${message.telemetry.tokensPerSecond.toFixed(2)}` : null,
     message.telemetry?.ttftMs != null ? `ttft: ${message.telemetry.ttftMs.toFixed(0)}ms` : null,
     message.telemetry?.totalMs != null ? `total: ${message.telemetry.totalMs.toFixed(0)}ms` : null,
@@ -2779,6 +2970,10 @@ $("chat-session-save-button")?.addEventListener("click", () => void saveChatSess
 $("chat-session-save-as-new-button")?.addEventListener("click", () => void saveChatSession({ saveAsNew: true }));
 $("chat-session-load-button")?.addEventListener("click", () => void loadChatSession());
 $("chat-session-delete-button")?.addEventListener("click", () => void deleteChatSession());
+$("chat-mode")?.addEventListener("change", applyChatModeUi);
+$("thread-new-button")?.addEventListener("click", () => void createThreadFromUi().catch((e) => showToast(e.message)));
+$("thread-refresh-button")?.addEventListener("click", () => void refreshThreadEvents().catch((e) => showToast(e.message)));
+$("thread-include-internal")?.addEventListener("change", () => void refreshThreadEvents().catch((e) => showToast(e.message)));
 $("embeddings-run-button")?.addEventListener("click", () => void runEmbeddings());
 $("embeddings-export-json")?.addEventListener("click", exportEmbeddingsJson);
 $("embeddings-export-csv")?.addEventListener("click", exportEmbeddingsCsv);
@@ -2976,6 +3171,7 @@ hydrateIcons();
 renderPromptTemplateOptions();
 applyChatPreset();
 renderChatDefaultsDiff();
+applyChatModeUi();
 renderSettingsConfig();
 bootstrapAuth().then(() => refreshAll());
 

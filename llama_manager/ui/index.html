@@ -115,13 +115,29 @@
               <aside class="panel chat-side-panel">
                 <div class="panel-title"><div><span class="eyebrow">Route</span><h2>Controls</h2></div><button id="open-chat-advanced" type="button">Advanced</button></div>
                 <div class="side-form">
+                  <label><span class="label">Mode</span><select id="chat-mode"><option value="direct">Direct model</option><option value="thread">Controller thread</option></select></label>
                   <label><span class="label">Model</span><select id="chat-model"></select></label>
                   <label><span class="label">Route</span><select id="chat-target"></select></label>
                   <label><span class="label">Preset</span><select id="chat-preset"><option value="balanced">Balanced</option><option value="deterministic">Deterministic</option><option value="creative">Creative</option></select></label>
+                  <div id="thread-controls" class="thread-controls" hidden style="display: none;">
+                    <label><span class="label">Thread ID</span><input id="chat-thread-id" type="text" readonly placeholder="Create a thread" /></label>
+                    <div class="thread-grid">
+                      <label><span class="label">App</span><input id="thread-app" type="text" value="llama-manager-ui" /></label>
+                      <label><span class="label">Priority</span><select id="thread-priority"><option value="medium">medium</option><option value="high">high</option><option value="low">low</option></select></label>
+                    </div>
+                    <div class="thread-grid">
+                      <label><span class="label">Purpose</span><input id="thread-purpose" type="text" placeholder="chat" value="chat" /></label>
+                      <label><span class="label">Request type</span><select id="thread-request-type"><option value="general">general</option><option value="coding">coding</option><option value="research">research</option></select></label>
+                    </div>
+                    <label id="thread-internal-label" class="checkbox-label" hidden><input id="thread-include-internal" type="checkbox" /><span>Include internal events</span></label>
+                    <div id="thread-route-detail" class="detail-json compact-json">No thread created.</div>
+                  </div>
                   <label><span class="label">Session name</span><input id="chat-session-name" type="text" placeholder="Session name" /></label>
                   <label><span class="label">Saved sessions</span><select id="chat-session-select"></select></label>
                 </div>
                 <div class="stacked-actions">
+                  <button id="thread-new-button" type="button">New Thread</button>
+                  <button id="thread-refresh-button" type="button">Refresh Thread</button>
                   <button id="chat-session-save-button" type="button">Save Session</button>
                   <button id="chat-session-save-as-new-button" type="button">Save As New</button>
                   <button id="chat-session-load-button" type="button">Load</button>

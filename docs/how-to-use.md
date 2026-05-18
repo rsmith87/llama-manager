@@ -431,17 +431,21 @@ The only typed worker contract in this milestone is `llm.generate`. Additional c
 
 ## 14. Run Tests
 
-Backend/API:
+Full test suite:
 
 ```bash
 uv run pytest -v
 ```
 
+The pytest suite installs `frontend-tests` dependencies with `npm ci` before
+running the frontend unit tests, so `frontend-tests/node_modules` does not need
+to be checked in.
+
 Frontend telemetry unit tests:
 
 ```bash
 cd frontend-tests
-npm install
+npm ci
 npm test
 ```
 

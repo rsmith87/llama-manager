@@ -27,10 +27,17 @@ class ModelConfig(BaseModel):
     prompt_template: str | None = None
 
 
+class NodeRequestTypeConfig(BaseModel):
+    model: str
+    priority: int = 100
+
+
 class NodeConfig(BaseModel):
     url: str
     api_key: str | None = None
     verify_tls: bool = True
+    default_model: str | None = None
+    request_types: dict[str, NodeRequestTypeConfig] = Field(default_factory=dict)
 
 
 class AppConfig(BaseModel):

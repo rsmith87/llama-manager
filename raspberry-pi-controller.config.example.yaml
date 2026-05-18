@@ -28,7 +28,23 @@ nodes:
     url: ${LLAMA_MANAGER_MAC_MINI_AGENT_URL}
     api_key: ${LLAMA_MANAGER_MAC_MINI_AGENT_API_KEY}
     verify_tls: true
+    default_model: gemma-4-E2B-it
+    request_types:
+      general:
+        model: gemma-4-E2B-it
+        priority: 10
+      coding:
+        model: gemma-4-E2B-it
+        priority: 50
   linux-2080ti:
     url: ${LLAMA_MANAGER_LINUX_2080TI_AGENT_URL}
     api_key: ${LLAMA_MANAGER_LINUX_2080TI_AGENT_API_KEY}
     verify_tls: true
+    default_model: qwen
+    request_types:
+      coding:
+        model: qwen
+        priority: 10
+      research:
+        model: qwen
+        priority: 10

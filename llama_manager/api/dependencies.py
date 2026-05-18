@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from llama_manager.core.nodes.registry import NodeRegistry
     from llama_manager.core.orchestration.orchestrator import Orchestrator
     from llama_manager.core.runtime.process_manager import ProcessManager
+    from llama_manager.core.threads.service import ThreadService
 
 
 def get_config(request: Request) -> AppConfig:
@@ -52,6 +53,10 @@ def get_download_manager(request: Request) -> DownloadManager:
 
 def get_chat_session_store(request: Request) -> Any:
     return request.app.state.chat_session_store
+
+
+def get_thread_service(request: Request) -> ThreadService:
+    return request.app.state.thread_service
 
 
 def get_audit_store(request: Request) -> Any:

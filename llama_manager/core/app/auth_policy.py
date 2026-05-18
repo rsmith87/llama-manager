@@ -26,6 +26,8 @@ def is_viewer_forbidden(path: str, role: str) -> bool:
         return False
     if path.startswith("/audit") or path.startswith("/auth"):
         return False
+    if path.startswith("/threads/") and path.endswith("/events"):
+        return False
     return True
 
 

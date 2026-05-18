@@ -87,6 +87,47 @@ models:
     assert config.models["gemma"].path == "/models/gemma.gguf"
 
 
+def test_node_config_accepts_thread_routing_defaults():
+    config = load_config(
+        {
+            "mode": "controller",
+            "nodes": {
+                "mac-mini": {
+                    "url": "http://mac:9137",
+                    "api_key": "mac-secret",
+                    "default_model": "gemma",
+                    "request_types": {
+                        "general": {"model": "gemma", "priority": 10},
+                        "coding": {"model": "qwen", "priority": 50},
+                        "vision": {"model": "llava"},
+                    },
+                }
+            },
+        }
+    )
+
+    node = config.nodes["mac-mini"]
+    assert node.default_model == "gemma"
+    assert node.request_types["general"].model == "gemma"
+    assert node.request_types["general"].priority == 10
+    assert node.request_types["coding"].priority == 50
+    assert node.request_types["vision"].priority == 100
+
+
+def test_raspberry_pi_example_includes_thread_routing_defaults(monkeypatch):
+    monkeypatch.setenv("LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY", "controller-key")
+    monkeypatch.setenv("LLAMA_MANAGER_MAC_MINI_AGENT_URL", "http://mac:9137")
+    monkeypatch.setenv("LLAMA_MANAGER_MAC_MINI_AGENT_API_KEY", "mac-key")
+    monkeypatch.setenv("LLAMA_MANAGER_LINUX_2080TI_AGENT_URL", "http://linux:9137")
+    monkeypatch.setenv("LLAMA_MANAGER_LINUX_2080TI_AGENT_API_KEY", "linux-key")
+
+    config = load_config("raspberry-pi-controller.config.example.yaml")
+
+    assert config.nodes["mac-mini"].default_model
+    assert "general" in config.nodes["mac-mini"].request_types
+    assert "coding" in config.nodes["linux-2080ti"].request_types
+
+
 def test_build_llama_server_command_uses_configured_model_options():
     config = load_config(
         {

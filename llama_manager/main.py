@@ -24,6 +24,7 @@ from llama_manager.api.routes import (
     nodes,
     quantizations,
     settings,
+    threads,
     ui,
 )
 from llama_manager.core.config import AppConfig, load_config
@@ -38,6 +39,8 @@ from llama_manager.core.model_assets.quantizations import QuantizationManager
 from llama_manager.core.orchestration.store_orm import OrchestrationStoreOrm
 from llama_manager.core.orchestration.repo import OrchestrationRepo
 from llama_manager.core.orchestration.orchestrator import Orchestrator
+from llama_manager.core.threads.service import ThreadService
+from llama_manager.core.threads.store import ThreadStore
 from llama_manager.core.nodes.worker import AgentWorker
 from llama_manager.storage.db import InMemoryStore, JsonFileStore
 from llama_manager.core.persistence.chat_session_store_orm import ChatSessionStoreOrm
@@ -80,6 +83,16 @@ def _build_orchestrator(config: AppConfig) -> Orchestrator | None:
     )
 
 
+async def _thread_model_running(registry: NodeRegistry, node: str, model: str) -> bool:
+    try:
+        models = await registry.request_node(node, "GET", "/models")
+    except Exception:
+        return False
+    if not isinstance(models, list):
+        return False
+    return any(item.get("name") == model and item.get("running") is True for item in models if isinstance(item, dict))
+
+
 def _configure_app_state(
     app: FastAPI,
     app_config: AppConfig,
@@ -114,6 +127,12 @@ def _configure_app_state(
         request=chat_request,
         stream_request=chat_stream_request,
     )
+    app.state.thread_service = ThreadService(
+        config=app_config,
+        store=ThreadStore(app_config.log_dir / "threads.db"),
+        chat_proxy=app.state.chat_proxy,
+        model_running=lambda node, model: _thread_model_running(app.state.node_registry, node, model),
+    )
     auth_urls = resolve_persistence_urls(app_config)
     app.state.chat_session_store = ChatSessionStoreOrm(db_url=auth_urls.chat_sessions)
     app.state.model_download_store = ModelDownloadStoreOrm(db_url=auth_urls.chat_sessions)
@@ -146,6 +165,7 @@ def _register_routers(app: FastAPI, app_config: AppConfig) -> None:
     app.include_router(audit.router)
     app.include_router(auth.router)
     if app_config.mode == "controller":
+        app.include_router(threads.router)
         app.include_router(jobs.router)
         app.include_router(node_work.router)
 

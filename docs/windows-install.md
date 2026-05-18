@@ -66,7 +66,7 @@ YAML accepts unquoted Windows paths like `D:\HFModels\model.gguf`. If a path con
 
 ## 4. Start The Windows Agent
 
-On Mac/Linux agents, `scripts/onboard_agent.sh` and `scripts/start_server.sh`
+On Mac/Linux agents, `scripts/onboard_agent.sh` and `scripts/start_agent.sh`
 handle config, keys, and startup. On Windows, the supported path is still
 PowerShell/manual config unless you run the repository from a Bash-compatible
 environment such as Git Bash or WSL.
@@ -109,7 +109,7 @@ On the Mac controller, prefer the onboarding/start scripts:
 
 ```bash
 scripts/onboard_controller.sh
-scripts/start_server.sh
+scripts/start_controller.sh
 ```
 
 When the Windows agent key changes, update the Mac controller node entry with
@@ -142,7 +142,7 @@ LLAMA_MANAGER_CONFIG=controller.yaml uvicorn llama_manager.main:app --host 0.0.0
 If `.llama-manager.env` points at the controller config, use:
 
 ```bash
-scripts/start_server.sh
+scripts/start_controller.sh
 ```
 
 ## 7. Common Causes Of Mac Paths In The UI

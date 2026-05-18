@@ -28,7 +28,7 @@ For a controller host:
 
 ```bash
 scripts/onboard_controller.sh
-scripts/start_server.sh
+scripts/start_controller.sh
 ```
 
 `scripts/onboard_controller.sh` creates `config.yaml` when needed, writes
@@ -45,7 +45,7 @@ scripts/onboard_agent.sh \
   --node mac-agent \
   --controller-url http://CONTROLLER_IP:9137 \
   --agent-url http://AGENT_IP:9137
-scripts/start_server.sh
+scripts/start_agent.sh
 ```
 
 `scripts/onboard_agent.sh` creates an agent config, writes
@@ -62,7 +62,7 @@ scripts/regenerate_key.sh --type agent-api --node mac-agent --agent-url http://A
 The startup and stop scripts source `.llama-manager.env` automatically:
 
 ```bash
-scripts/start_server.sh
+scripts/start_agent.sh
 scripts/stop_server.sh
 ```
 
@@ -154,7 +154,7 @@ curl http://127.0.0.1:9000/health
 Local Mac helper scripts:
 
 ```bash
-scripts/start_server.sh
+scripts/start_agent.sh
 scripts/stop_server.sh
 ```
 
@@ -268,7 +268,7 @@ For fresh controller setup, prefer the onboarding script:
 
 ```bash
 scripts/onboard_controller.sh
-scripts/start_server.sh
+scripts/start_controller.sh
 ```
 
 The script generates `.llama-manager.env`, runs migrations, creates the first
@@ -299,7 +299,7 @@ If `controller.yaml` is recorded in `.llama-manager.env` as
 `LLAMA_MANAGER_CONFIG`, you can also use:
 
 ```bash
-scripts/start_server.sh
+scripts/start_controller.sh
 ```
 
 Controller endpoints include node inventory/proxy plus orchestration (`/jobs`, node `/work/*`, stats, retention, archive export). In the UI, use the Nodes page to inspect registered agents, heartbeat freshness, reported models, and remote model Start/Stop/Restart/Logs actions.
@@ -312,7 +312,7 @@ Raspberry Pi integration is a good fit for the always-on controller role. The Pi
 scripts/onboard_controller.sh \
   --config raspberry-pi-controller.config.yaml \
   --template raspberry-pi-controller.config.example.yaml
-scripts/start_server.sh
+scripts/start_controller.sh
 ```
 
 The Pi template still contains placeholder agent IPs and per-node API-key
@@ -463,7 +463,7 @@ alembic -x db=auth upgrade auth@head
 alembic -x db=audit upgrade audit@head
 alembic -x db=chat_sessions upgrade chat_sessions@head
 ```
-2. Start the app normally, or use `scripts/start_server.sh` if
+2. Start the app normally, or use `scripts/start_controller.sh` if
    `.llama-manager.env` points at the right config.
 3. Run focused smoke checks for auth, audit, chat sessions, and jobs.
 

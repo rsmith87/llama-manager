@@ -218,7 +218,7 @@ Give this controller-owned registration key to agents:
   export LLAMA_MANAGER_CONTROLLER_REGISTRATION_KEY='$CONTROLLER_REGISTRATION_KEY'
 
 Start the controller:
-  scripts/start_server.sh
+  scripts/start_controller.sh
 
 Agents should use:
   controller_url: http://<controller-host>:$PORT

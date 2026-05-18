@@ -9,7 +9,49 @@ if [[ -f "$ENV_FILE" ]]; then
   source "$ENV_FILE"
   set +a
 fi
-PID_FILE="${LLAMA_MANAGER_PID_FILE:-$ROOT_DIR/.llama_manager.pid}"
+
+TARGET="${1:-auto}"
+
+pid_file_for_target() {
+  case "$1" in
+    "agent")
+      echo "$ROOT_DIR/.llama_manager_agent.pid"
+      ;;
+    "controller")
+      echo "$ROOT_DIR/.llama_manager_controller.pid"
+      ;;
+    "server"|"legacy")
+      echo "$ROOT_DIR/.llama_manager.pid"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+if [[ -n "${LLAMA_MANAGER_PID_FILE:-}" ]]; then
+  PID_FILE="$LLAMA_MANAGER_PID_FILE"
+elif [[ "$TARGET" == "auto" ]]; then
+  PID_FILE=""
+  for candidate in \
+    "$ROOT_DIR/.llama_manager_agent.pid" \
+    "$ROOT_DIR/.llama_manager_controller.pid" \
+    "$ROOT_DIR/.llama_manager.pid"; do
+    if [[ -f "$candidate" ]]; then
+      PID_FILE="$candidate"
+      break
+    fi
+  done
+  if [[ -z "$PID_FILE" ]]; then
+    echo "No PID file found for agent, controller, or legacy server."
+    exit 0
+  fi
+else
+  if ! PID_FILE="$(pid_file_for_target "$TARGET")"; then
+    echo "Unknown target '$TARGET'. Use: agent, controller, server, legacy, or auto." >&2
+    exit 2
+  fi
+fi
 
 if [[ ! -f "$PID_FILE" ]]; then
   echo "No PID file found at $PID_FILE."

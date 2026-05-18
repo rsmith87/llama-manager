@@ -18,7 +18,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 scripts/onboard_controller.sh
-scripts/start_server.sh
+scripts/start_controller.sh
 ```
 
 Script-first setup for an agent:
@@ -32,12 +32,11 @@ scripts/onboard_agent.sh \
   --node linux-2080ti \
   --controller-url http://CONTROLLER_IP:9137 \
   --agent-url http://AGENT_IP:9137
-scripts/start_server.sh
+scripts/start_agent.sh
 ```
 
 The onboarding scripts write local secrets to `.llama-manager.env`, which is
-ignored by git. `scripts/start_server.sh` and `scripts/stop_server.sh` source
-that file automatically.
+ignored by git. The start/stop helper scripts source that file automatically.
 
 Manual setup remains available:
 
@@ -60,7 +59,7 @@ LLAMA_MANAGER_CONFIG=config.yaml uvicorn llama_manager.main:app --host 0.0.0.0 -
 Or use the helper scripts:
 
 ```bash
-scripts/start_server.sh
+scripts/start_agent.sh
 scripts/stop_server.sh
 ```
 
@@ -85,7 +84,7 @@ scripts/onboard_agent.sh \
 ```
 
 The agent onboarding script writes `.llama-manager.env` with the agent API key,
-controller registration key, config path, host, and port. `scripts/start_server.sh`
+controller registration key, config path, host, and port. `scripts/start_agent.sh`
 and `scripts/stop_server.sh` source `.llama-manager.env` automatically.
 
 Regenerate a local key and print the matching update for the other machines:
@@ -245,7 +244,7 @@ If the Raspberry Pi is the always-on coordinator, run it in `controller` mode an
 scripts/onboard_controller.sh \
   --config raspberry-pi-controller.config.yaml \
   --template raspberry-pi-controller.config.example.yaml
-scripts/start_server.sh
+scripts/start_controller.sh
 ```
 
 ```yaml

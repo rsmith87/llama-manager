@@ -236,5 +236,5 @@ Add or verify this node on the controller:
       verify_tls: true
 
 Start the agent:
-  scripts/start_server.sh
+  scripts/start_agent.sh
 EOF

@@ -17,9 +17,8 @@ if [[ -f "$ROOT_DIR/config.yaml" ]]; then
   DEFAULT_CONFIG="$ROOT_DIR/config.yaml"
 fi
 CONFIG="${LLAMA_MANAGER_CONFIG:-$DEFAULT_CONFIG}"
-PID_FILE="${LLAMA_MANAGER_PID_FILE:-$ROOT_DIR/.llama_manager_controller.pid}"
-LOG_FILE="${LLAMA_MANAGER_LOG_FILE:-$ROOT_DIR/logs/llama_manager_controller_uvicorn.log}"
-RUN_MIGRATIONS="${LLAMA_MANAGER_RUN_MIGRATIONS:-1}"
+PID_FILE="${LLAMA_MANAGER_PID_FILE:-$ROOT_DIR/.llama_manager_agent.pid}"
+LOG_FILE="${LLAMA_MANAGER_LOG_FILE:-$ROOT_DIR/logs/llama_manager_agent_uvicorn.log}"
 
 cd "$ROOT_DIR"
 mkdir -p "$(dirname "$LOG_FILE")"
@@ -27,7 +26,7 @@ mkdir -p "$(dirname "$LOG_FILE")"
 if [[ -f "$PID_FILE" ]]; then
   PID="$(cat "$PID_FILE")"
   if kill -0 "$PID" 2>/dev/null; then
-    echo "Llama Manager controller is already running on PID $PID."
+    echo "Llama Manager agent is already running on PID $PID."
     echo "URL: http://$HOST:$PORT"
     exit 0
   fi
@@ -39,30 +38,18 @@ if [[ -x "$ROOT_DIR/.venv/bin/python" ]]; then
 else
   PYTHON="${PYTHON:-python3}"
 fi
-ALEMBIC="${ALEMBIC:-$ROOT_DIR/.venv/bin/alembic}"
-if [[ ! -x "$ALEMBIC" ]]; then
-  ALEMBIC="alembic"
-fi
 
-LLAMA_MANAGER_CONFIG="$CONFIG" LLAMA_MANAGER_MODE=controller "$PYTHON" - <<'PY'
+LLAMA_MANAGER_CONFIG="$CONFIG" LLAMA_MANAGER_MODE=agent "$PYTHON" - <<'PY'
 from llama_manager.core.config import load_config
 from llama_manager.main import create_app
 
 config = load_config()
-if config.mode != "controller":
-    raise SystemExit(f"Expected controller config, got {config.mode!r}")
+if config.mode != "agent":
+    raise SystemExit(f"Expected agent config, got {config.mode!r}")
 create_app(config=config)
 PY
 
-if [[ "$RUN_MIGRATIONS" != "0" ]]; then
-  echo "Running controller migrations..."
-  "$ALEMBIC" -x db=controller upgrade controller@head
-  "$ALEMBIC" -x db=auth upgrade auth@head
-  "$ALEMBIC" -x db=audit upgrade audit@head
-  "$ALEMBIC" -x db=chat_sessions upgrade chat_sessions@head
-fi
-
-LLAMA_MANAGER_CONFIG="$CONFIG" LLAMA_MANAGER_MODE=controller nohup "$PYTHON" -m uvicorn llama_manager.main:app \
+LLAMA_MANAGER_CONFIG="$CONFIG" LLAMA_MANAGER_MODE=agent nohup "$PYTHON" -m uvicorn llama_manager.main:app \
   --host "$HOST" \
   --port "$PORT" \
   >"$LOG_FILE" 2>&1 &
@@ -70,7 +57,7 @@ LLAMA_MANAGER_CONFIG="$CONFIG" LLAMA_MANAGER_MODE=controller nohup "$PYTHON" -m 
 PID="$!"
 echo "$PID" > "$PID_FILE"
 
-echo "Started Llama Manager controller on PID $PID."
+echo "Started Llama Manager agent on PID $PID."
 echo "URL: http://$HOST:$PORT"
 echo "Config: $CONFIG"
 echo "Log: $LOG_FILE"

@@ -10,6 +10,8 @@ def should_bypass_middleware(path: str, method: str) -> bool:
         return True
     if path.startswith("/nodes/register") or "/work/" in path or path.endswith("/work/claim"):
         return True
+    if method == "GET" and path.startswith("/transfer-source/"):
+        return True
     if (method == "GET" and path.startswith("/auth/me")) or path.startswith("/auth/logout"):
         return True
     return False

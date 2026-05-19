@@ -5,6 +5,7 @@ import pytest
 
 from llama_manager.core.nodes.worker import AgentWorker
 from llama_manager.core.config import load_config
+from llama_manager.core.orchestration.job_contracts import validate_job_payload
 from llama_manager.main import create_app
 from tests.helpers import authenticated_client as TestClient
 from tests.persistence_db_setup import prepare_all_persistence_dbs
@@ -47,6 +48,36 @@ def test_llm_generate_job_validates_required_payload(tmp_path):
     )
     assert valid.status_code == 201
     assert valid.json()["type"] == "llm.generate"
+
+
+def test_validate_model_transfer_payload_accepts_selected_with_sidecars():
+    payload = validate_job_payload(
+        "model.transfer",
+        {
+            "source_node": "mac-mini",
+            "destination_node": "linux-2080ti",
+            "source_file_id": "abc123",
+            "include": "selected_with_sidecars",
+        },
+    )
+
+    assert payload["source_node"] == "mac-mini"
+    assert payload["destination_node"] == "linux-2080ti"
+    assert payload["source_file_id"] == "abc123"
+    assert payload["include"] == "selected_with_sidecars"
+
+
+def test_validate_model_transfer_payload_rejects_same_node():
+    with pytest.raises(ValueError, match="source_node and destination_node must differ"):
+        validate_job_payload(
+            "model.transfer",
+            {
+                "source_node": "mac-mini",
+                "destination_node": "mac-mini",
+                "source_file_id": "abc123",
+                "include": "selected_with_sidecars",
+            },
+        )
 
 
 def test_cancel_running_job_records_cancel_requested(tmp_path):

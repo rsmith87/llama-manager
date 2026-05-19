@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -60,10 +60,29 @@ class LlmGenerateJobPayload(BaseModel):
         return self
 
 
+class ModelTransferJobPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_node: str = Field(min_length=1)
+    destination_node: str = Field(min_length=1)
+    source_file_id: str = Field(min_length=1)
+    include: Literal["selected_with_sidecars"] = "selected_with_sidecars"
+    source_url: str | None = None
+    transfer_token: str | None = None
+
+    @model_validator(mode="after")
+    def validate_nodes(self) -> "ModelTransferJobPayload":
+        if self.source_node == self.destination_node:
+            raise ValueError("source_node and destination_node must differ")
+        return self
+
+
 def validate_job_payload(job_type: str, payload: dict[str, Any]) -> dict[str, Any]:
-    if job_type != "llm.generate":
-        return payload
-    return LlmGenerateJobPayload.model_validate(payload).model_dump(mode="json", exclude_none=True)
+    if job_type == "llm.generate":
+        return LlmGenerateJobPayload.model_validate(payload).model_dump(mode="json", exclude_none=True)
+    if job_type == "model.transfer":
+        return ModelTransferJobPayload.model_validate(payload).model_dump(mode="json", exclude_none=True)
+    return payload
 
 
 def chat_payload_from_llm_generate(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:

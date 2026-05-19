@@ -8,7 +8,7 @@ import httpx
 from llama_manager.core.config import AppConfig, NodeConfig
 
 
-ControllerRequest = Callable[[str, str, str | None, bool], Awaitable[dict[str, Any]]]
+ControllerRequest = Callable[[str, str, str | None, bool, dict[str, Any] | None], Awaitable[dict[str, Any]]]
 
 
 class NodeStateStore(Protocol):
@@ -71,10 +71,18 @@ class NodeRegistry:
             return name in self.config.nodes
         return age <= self.config.node_heartbeat_timeout_seconds
 
-    async def request_node(self, node_name: str, method: str, path: str) -> dict[str, Any]:
+    async def request_node(
+        self,
+        node_name: str,
+        method: str,
+        path: str,
+        json_body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         node = self._get_node(node_name)
         url = f"{node.url.rstrip('/')}/{path.lstrip('/')}"
-        return await self._request(method, url, node.api_key, node.verify_tls)
+        if json_body is None:
+            return await self._request(method, url, node.api_key, node.verify_tls)
+        return await self._request(method, url, node.api_key, node.verify_tls, json_body)
 
     def register_node(self, name: str, node: NodeConfig) -> None:
         if name in self.config.nodes:
@@ -118,13 +126,17 @@ class NodeRegistry:
 
     @staticmethod
     async def _default_request(
-        method: str, url: str, api_key: str | None, verify_tls: bool
+        method: str,
+        url: str,
+        api_key: str | None,
+        verify_tls: bool,
+        json_body: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         headers: dict[str, str] = {}
         if api_key:
             headers["X-Llama-Manager-Key"] = api_key
         async with httpx.AsyncClient(timeout=10, verify=verify_tls) as client:
-            response = await client.request(method, url, headers=headers)
+            response = await client.request(method, url, headers=headers, json=json_body)
             response.raise_for_status()
             return response.json()
 

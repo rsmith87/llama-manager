@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from llama_manager.core.model_assets.library import GgufLibrary
     from llama_manager.core.model_assets.downloads import DownloadManager
     from llama_manager.core.model_assets.quantizations import QuantizationManager
+    from llama_manager.core.model_assets.transfers import TransferManager
     from llama_manager.core.nodes.registry import NodeRegistry
     from llama_manager.core.orchestration.orchestrator import Orchestrator
     from llama_manager.core.runtime.process_manager import ProcessManager
@@ -49,6 +50,10 @@ def get_gguf_library(request: Request) -> GgufLibrary:
 
 def get_download_manager(request: Request) -> DownloadManager:
     return request.app.state.download_manager
+
+
+def get_transfer_manager(request: Request) -> TransferManager:
+    return request.app.state.transfer_manager
 
 
 def get_chat_session_store(request: Request) -> Any:

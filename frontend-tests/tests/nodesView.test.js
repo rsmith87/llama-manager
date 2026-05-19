@@ -6,9 +6,11 @@ import {
   nodeEditFormDefaults,
   nodeEditMarkup,
   PROMPT_TEMPLATE_OPTIONS,
+  receivedBadgeText,
   sortModelsForDisplay,
   suggestedGgufModelName,
   suggestedPromptTemplate,
+  transferDestinationOptions,
 } from "../../llama_manager/ui/nodes_view.js";
 
 const nodes = [
@@ -136,5 +138,23 @@ describe("nodes view helpers", () => {
     expect(nodeEditMarkup(nodes[0], { compact: false })).toContain('data-edit-node="mac-agent"');
     expect(nodeEditMarkup(nodes[0], { compact: false })).toContain("Edit Node");
     expect(nodeEditMarkup(nodes[0], { compact: true })).toBe("");
+  });
+
+  it("filters transfer destinations to reachable nodes excluding source", () => {
+    const options = transferDestinationOptions(
+      [
+        { name: "source", reachable: true },
+        { name: "dest", reachable: true },
+        { name: "offline", reachable: false },
+      ],
+      "source",
+    );
+
+    expect(options).toEqual([{ name: "dest", reachable: true }]);
+  });
+
+  it("builds received badge text for transferred files", () => {
+    expect(receivedBadgeText({ recently_received: true, received_from_node: "source" })).toBe("Received from source");
+    expect(receivedBadgeText({ recently_received: false })).toBe("");
   });
 });

@@ -11,6 +11,7 @@ from llama_manager.core.runtime.log_stream import stream_log_file
 
 class StartDownloadRequest(BaseModel):
     revision: str | None = None
+    include_file: str | None = None
 
 
 router = APIRouter(prefix="/downloads")
@@ -30,6 +31,30 @@ def download_history(
     return manager.history(status=status, limit=limit)
 
 
+@router.get("/quants")
+def remote_quants_by_query(
+    repo_id: str = Query(...),
+    revision: str | None = Query(default=None),
+    manager: DownloadManager = Depends(get_download_manager),
+):
+    try:
+        return manager.list_remote_quants(repo_id, revision=revision)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/{repo_id:path}/quants")
+def remote_quants(
+    repo_id: str,
+    revision: str | None = Query(default=None),
+    manager: DownloadManager = Depends(get_download_manager),
+):
+    try:
+        return manager.list_remote_quants(repo_id, revision=revision)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/{repo_id:path}/start")
 def start_download(
     repo_id: str,
@@ -40,7 +65,8 @@ def start_download(
     try:
         actor = getattr(request.state, "ui_user", "unknown")
         revision = body.revision if body else None
-        return manager.start(repo_id, triggered_by=actor, revision=revision)
+        include_file = body.include_file if body else None
+        return manager.start(repo_id, triggered_by=actor, revision=revision, include_file=include_file)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 

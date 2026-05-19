@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import io
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from time import monotonic
@@ -9,11 +10,13 @@ from typing import Any
 import httpx
 
 from llama_manager.core.config import AppConfig
+from llama_manager.core.model_assets.transfers import TransferManager
 from llama_manager.core.orchestration.job_contracts import chat_payload_from_llm_generate
 
 
 WorkerRequest = Callable[[str, str, dict[str, Any] | None, dict[str, str] | None], Awaitable[Any]]
 WorkerChat = Callable[[str, dict[str, Any]], Awaitable[tuple[dict[str, Any], dict[str, str]]]]
+WorkerTransferStream = Callable[[str, dict[str, str]], Awaitable[Any]]
 
 
 class AgentWorker:
@@ -22,10 +25,13 @@ class AgentWorker:
         config: AppConfig,
         request: WorkerRequest | None = None,
         chat: WorkerChat | None = None,
+        transfer_stream: WorkerTransferStream | None = None,
     ):
         self.config = config
         self._request = request or self._default_request
         self._chat = chat
+        self._transfer_stream = transfer_stream or self._default_transfer_stream
+        self._transfer_manager = TransferManager(config)
         self._task: asyncio.Task | None = None
         self._stop_event: asyncio.Event | None = None
 
@@ -91,10 +97,13 @@ class AgentWorker:
         job_type = str(job.get("type", ""))
         if not attempt_id:
             return
-        if job_type != "llm.generate":
-            await self._fail(attempt_id, "UNSUPPORTED_JOB_TYPE", f"Unsupported job type: {job_type}", retryable=False)
+        if job_type == "llm.generate":
+            await self._run_llm_generate(attempt_id, job)
             return
-        await self._run_llm_generate(attempt_id, job)
+        if job_type == "model.transfer":
+            await self._run_model_transfer(attempt_id, job)
+            return
+        await self._fail(attempt_id, "UNSUPPORTED_JOB_TYPE", f"Unsupported job type: {job_type}", retryable=False)
 
     async def _run_llm_generate(self, attempt_id: str, job: dict[str, Any]) -> None:
         job_id = str(job.get("id", ""))
@@ -134,6 +143,71 @@ class AgentWorker:
         except Exception as exc:
             await self._fail(attempt_id, "EXECUTION_ERROR", str(exc), retryable=True)
 
+    async def _run_model_transfer(self, attempt_id: str, job: dict[str, Any]) -> None:
+        job_id = str(job.get("id", ""))
+        payload = job.get("payload", {})
+        if await self._is_cancel_requested(job_id):
+            await self._fail(attempt_id, "CANCELED", "Job canceled before transfer", retryable=False)
+            return
+        await self._progress(attempt_id, {"stage": "manifest", "job_type": "model.transfer"})
+        try:
+            source_node = str(payload["source_node"])
+            source_file_id = str(payload["source_file_id"])
+            source_base = str(payload["source_url"]).rstrip("/")
+            transfer_headers = {"Authorization": f"Bearer {payload['transfer_token']}"}
+            manifest = await self._transfer_stream(
+                f"{source_base}/transfer-source/ggufs/{source_file_id}/manifest",
+                transfer_headers,
+            )
+            files = manifest.get("files", []) if isinstance(manifest, dict) else []
+            copied = []
+            skipped = []
+            bytes_copied = 0
+            for index, manifest_file in enumerate(files, start=1):
+                if await self._is_cancel_requested(job_id):
+                    await self._fail(attempt_id, "CANCELED", "Job canceled during transfer", retryable=False)
+                    return
+                await self._progress(
+                    attempt_id,
+                    {
+                        "stage": "copying",
+                        "file_index": index,
+                        "files_total": len(files),
+                        "relative_path": manifest_file.get("relative_path"),
+                    },
+                )
+                stream = await self._transfer_stream(
+                    f"{source_base}/transfer-source/files/{manifest_file['id']}/content",
+                    transfer_headers,
+                )
+                result = self._transfer_manager.write_manifest_file(manifest_file, stream)
+                if result["status"] == "copied":
+                    copied.append(result)
+                    bytes_copied += int(result["bytes"])
+                else:
+                    skipped.append(result)
+            await self._complete(
+                attempt_id,
+                {
+                    "source_node": source_node,
+                    "destination_node": self.config.node_name,
+                    "source_file_id": source_file_id,
+                    "files_total": len(files),
+                    "files_copied": len(copied),
+                    "files_skipped": len(skipped),
+                    "bytes_copied": bytes_copied,
+                    "copied": copied,
+                    "skipped": skipped,
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+        except FileExistsError as exc:
+            await self._fail(attempt_id, "DESTINATION_CONFLICT", str(exc), retryable=False)
+        except KeyError as exc:
+            await self._fail(attempt_id, "INVALID_TRANSFER_PAYLOAD", str(exc), retryable=False)
+        except Exception as exc:
+            await self._fail(attempt_id, "TRANSFER_ERROR", str(exc), retryable=True)
+
     async def _is_cancel_requested(self, job_id: str) -> bool:
         if not job_id:
             return False
@@ -168,3 +242,13 @@ class AgentWorker:
             response = await client.request(method, url, json=payload, headers=headers or None)
             response.raise_for_status()
             return response.json() if response.content else {"ok": True}
+
+    @staticmethod
+    async def _default_transfer_stream(url: str, headers: dict[str, str]) -> Any:
+        async with httpx.AsyncClient(timeout=None) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            content_type = response.headers.get("content-type", "")
+            if "application/json" in content_type:
+                return response.json()
+            return io.BytesIO(response.content)

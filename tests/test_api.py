@@ -580,6 +580,26 @@ def test_download_log_stream_route_replays_existing_log(tmp_path, monkeypatch):
     assert 'event: chunk\ndata: {"text":"second\\n"}\n\n' in first_event
 
 
+def test_download_remote_quants_route(tmp_path):
+    app = create_app(
+        config=load_config({"mode": "agent", "log_dir": str(tmp_path / "logs")}),
+        process_manager=StubProcessManager(),
+        conversion_manager=StubConversionManager(),
+        gguf_library=StubGgufLibrary(),
+    )
+    app.state.download_manager.list_remote_quants = lambda repo_id, revision=None: [
+        {"filename": "model-Q4_K_M.gguf", "path": "model-Q4_K_M.gguf", "size_bytes": 1024, "quant": "Q4_K_M"}
+    ]
+    client = TestClient(app)
+
+    response = client.get("/downloads/quants?repo_id=owner/model&revision=main")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"filename": "model-Q4_K_M.gguf", "path": "model-Q4_K_M.gguf", "size_bytes": 1024, "quant": "Q4_K_M"}
+    ]
+
+
 def test_chat_route_requires_running_model():
     app = create_app(
         config=load_config(

@@ -408,6 +408,7 @@ td.path { max-width: 360px; color: var(--muted); font-family: var(--mono); font-
 .library-card-grid .k { color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; }
 .library-card-grid .v { overflow-wrap: anywhere; }
 .library-card-grid .mono { font-family: var(--mono); color: #bfd2dc; font-size: 11px; }
+.status.received { border-color: rgba(55, 213, 229, 0.45); color: #8be7ef; background: rgba(55, 213, 229, 0.12); }
 .split-layout .span-all { grid-column: 1 / -1; }
 .compact-controls { display: flex; align-items: end; gap: 10px; padding: 12px; flex-wrap: wrap; }
 .compact-controls label { width: 160px; }
@@ -418,6 +419,29 @@ td.path { max-width: 360px; color: var(--muted); font-family: var(--mono); font-
 .controller-card { padding: 12px; }
 .controller-card h3 { margin-bottom: 10px; }
 .controller-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.download-form-status { grid-column: span 2; align-self: center; font-size: 12px; }
+#download-form { align-items: start; }
+.download-quant-cards { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; max-height: 430px; overflow: auto; padding-top: 2px; }
+.download-quant-cards:empty { display: none; }
+.download-quant-card { margin: 0; gap: 8px; padding: 9px; border-radius: 10px; }
+.download-quant-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.download-quant-head strong { font-size: 16px; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.download-quant-badges { display: inline-flex; align-items: center; justify-content: flex-end; gap: 7px; flex: 0 0 auto; min-width: 0; }
+.mmproj-badge { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-size: 10px; font-weight: 900; line-height: 1; text-transform: uppercase; white-space: nowrap; }
+.mmproj-badge span[data-icon] { width: 13px; height: 13px; display: inline-flex; }
+.mmproj-badge svg { width: 13px; height: 13px; stroke: currentColor; }
+.fit-badge { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; max-width: 112px; color: var(--muted); font-size: 11px; font-weight: 800; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fit-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 12px currentColor; }
+.fit-good { color: var(--ok); }
+.fit-tight { color: var(--warn); }
+.fit-too-large { color: var(--danger); }
+.fit-unknown { color: var(--muted); }
+.download-quant-meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; min-width: 0; }
+.download-quant-meta > div { min-width: 0; display: grid; gap: 2px; }
+.download-quant-meta > div:last-child { grid-column: 1 / -1; }
+.download-quant-meta strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 1.2; }
+.download-quant-meta .label { font-size: 10px; }
+.download-quant-card button { min-height: 28px; padding: 5px 10px; justify-self: start; font-size: 12px; }
 .detail-json {
   margin: 0;
   max-height: 330px;

@@ -83,6 +83,17 @@ export function nodeEditMarkup(node, { compact } = {}) {
   return `<button class="primary node-edit-button" type="button" data-edit-node="${escapeAttribute(node?.name || "")}">Edit Node</button>`;
 }
 
+export function transferDestinationOptions(nodes, sourceName) {
+  return (Array.isArray(nodes) ? nodes : [])
+    .filter((node) => node?.name && node.name !== sourceName && Boolean(node.reachable))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+}
+
+export function receivedBadgeText(file) {
+  if (!file?.recently_received) return "";
+  return file.received_from_node ? `Received from ${file.received_from_node}` : "Recently received";
+}
+
 function escapeAttribute(value) {
   return String(value)
     .replaceAll("&", "&amp;")

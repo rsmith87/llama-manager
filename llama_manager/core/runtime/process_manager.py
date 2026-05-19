@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Callable, IO
 
 from llama_manager.core.config import AppConfig, ModelConfig, save_config
+from llama_manager.core.model_assets.library import GgufLibrary
 from llama_manager.providers.llama_cpp import build_llama_server_command
 
 
@@ -21,6 +22,7 @@ class ModelStatus:
     model_path: str
     log_path: str
     favorite: bool = False
+    file_id: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -59,6 +61,7 @@ class ProcessManager:
             model_path=model.path,
             log_path=str(self._log_path(name)),
             favorite=model.favorite,
+            file_id=GgufLibrary(self.config).file_id(Path(model.path)),
         )
 
     def set_favorite(self, name: str, favorite: bool) -> ModelStatus:

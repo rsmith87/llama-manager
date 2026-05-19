@@ -205,8 +205,11 @@
             <form id="download-form" class="controller-filters filter-bar">
               <input id="download-repo-id" type="text" placeholder="owner/model" />
               <input id="download-revision" type="text" placeholder="revision (optional)" />
+              <button id="download-discover-button" type="button">Find Quants</button>
               <button id="download-start-button" type="submit">Download</button>
               <button id="download-refresh-button" type="button">Refresh</button>
+              <span id="download-quant-status" class="muted download-form-status">Select a repo to query remote GGUF quants.</span>
+              <div id="download-quant-cards" class="download-quant-cards"></div>
             </form>
             <section class="panel"><div class="table-wrap"><table><thead><tr><th>Repo</th><th>Status</th><th>Started</th><th>Finished</th><th>Path</th><th>By</th><th>Actions</th></tr></thead><tbody id="downloads-body"><tr><td colspan="7" class="empty">Loading downloads...</td></tr></tbody></table></div></section>
           </section>
@@ -344,6 +347,25 @@
             <button id="gguf-detail-add-button" class="primary" type="button">Add Model</button>
             <button id="gguf-detail-remove-button" type="button">Remove Model</button>
             <button id="gguf-detail-delete-button" class="danger" type="button">Delete GGUF</button>
+          </div>
+        </div>
+      </section>
+    </dialog>
+
+    <dialog id="transfer-modal" class="modal" aria-labelledby="transfer-title">
+      <section class="modal-panel">
+        <div class="modal-header">
+          <div><span class="eyebrow">Model Transfer</span><h2 id="transfer-title">Send Model</h2></div>
+          <button type="button" class="icon-button" data-modal-close aria-label="Close transfer dialog">×</button>
+        </div>
+        <div class="modal-content">
+          <div id="transfer-summary" class="detail-list"></div>
+          <div class="library-controls">
+            <label><span class="label">Destination node</span><select id="transfer-destination"></select></label>
+            <p class="muted">Copies the selected GGUF plus required sidecars. Identical existing files are skipped; different existing files fail the transfer.</p>
+          </div>
+          <div class="modal-actions">
+            <button id="transfer-submit-button" class="primary" type="button">Send</button>
           </div>
         </div>
       </section>

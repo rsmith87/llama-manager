@@ -25,6 +25,7 @@ from llama_manager.api.routes import (
     quantizations,
     settings,
     threads,
+    transfers,
     ui,
 )
 from llama_manager.core.config import AppConfig, load_config
@@ -33,6 +34,7 @@ from llama_manager.core.nodes.heartbeat import AgentHeartbeatClient
 from llama_manager.core.model_assets.conversions import ConversionManager
 from llama_manager.core.model_assets.library import GgufLibrary
 from llama_manager.core.model_assets.downloads import DownloadManager
+from llama_manager.core.model_assets.transfers import TransferManager
 from llama_manager.core.nodes.registry import NodeRegistry
 from llama_manager.core.runtime.process_manager import ProcessManager
 from llama_manager.core.model_assets.quantizations import QuantizationManager
@@ -100,7 +102,7 @@ def _configure_app_state(
     conversion_manager: ConversionManager | None,
     quantization_manager: QuantizationManager | None,
     gguf_library: GgufLibrary | None,
-    controller_request: Callable[[str, str, str | None, bool], Awaitable[dict[str, Any]]] | None,
+    controller_request: Callable[[str, str, str | None, bool, dict[str, Any] | None], Awaitable[dict[str, Any]]] | None,
     chat_request: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]] | None,
     chat_stream_request: Callable[[str, dict[str, Any]], AsyncIterator[bytes]] | None,
     heartbeat_request: Callable[[str, str, dict[str, Any] | None], Awaitable[dict[str, Any]]] | None,
@@ -110,6 +112,7 @@ def _configure_app_state(
     app.state.conversion_manager = conversion_manager or ConversionManager(app_config)
     app.state.quantization_manager = quantization_manager or QuantizationManager(app_config)
     app.state.gguf_library = gguf_library or GgufLibrary(app_config)
+    app.state.transfer_manager = TransferManager(app_config)
     persistent_config = app_config.config_source not in {"(defaults)", "(in-memory)"}
     store = (
         JsonFileStore(app_config.log_dir / "controller_nodes_state.json")
@@ -161,6 +164,7 @@ def _register_routers(app: FastAPI, app_config: AppConfig) -> None:
     app.include_router(quantizations.router)
     app.include_router(settings.router)
     app.include_router(library.router)
+    app.include_router(transfers.router)
     app.include_router(nodes.router)
     app.include_router(audit.router)
     app.include_router(auth.router)
@@ -251,7 +255,7 @@ def create_app(
     conversion_manager: ConversionManager | None = None,
     quantization_manager: QuantizationManager | None = None,
     gguf_library: GgufLibrary | None = None,
-    controller_request: Callable[[str, str, str | None, bool], Awaitable[dict[str, Any]]] | None = None,
+    controller_request: Callable[[str, str, str | None, bool, dict[str, Any] | None], Awaitable[dict[str, Any]]] | None = None,
     chat_request: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]] | None = None,
     chat_stream_request: Callable[[str, dict[str, Any]], AsyncIterator[bytes]] | None = None,
     heartbeat_request: Callable[[str, str, dict[str, Any] | None], Awaitable[dict[str, Any]]] | None = None,

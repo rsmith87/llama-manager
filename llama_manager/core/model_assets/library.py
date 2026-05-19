@@ -14,10 +14,11 @@ class GgufLibrary:
     def __init__(self, config: AppConfig):
         self.config = config
 
-    def list_files(self) -> list[dict[str, object]]:
+    def list_files(self, recent_transfers: list[dict[str, object]] | None = None) -> list[dict[str, object]]:
+        received_by_path = self._received_by_path(recent_transfers or [])
         files = []
         for path in self._gguf_paths():
-            files.append(self._file_payload(path))
+            files.append(self._file_payload(path, received_by_path.get(str(path))))
         return files
 
     def add_model(
@@ -110,12 +111,14 @@ class GgufLibrary:
         paths = []
         for root in self.config.model_roots:
             if root.exists():
+                paths.extend(root.glob("*.gguf"))
                 paths.extend(root.glob("*/*.gguf"))
         return sorted(paths, key=lambda item: str(item).lower())
 
-    def _file_payload(self, path: Path) -> dict[str, object]:
+    def _file_payload(self, path: Path, received: dict[str, object] | None = None) -> dict[str, object]:
         registered_as = self._registered_name(path)
         size_bytes = path.stat().st_size
+        received_payload = received or {}
         return {
             "id": self.file_id(path),
             "name": path.stem,
@@ -126,6 +129,10 @@ class GgufLibrary:
             "size_gb": round(size_bytes / (1024**3), 2),
             "registered": registered_as is not None,
             "registered_as": registered_as,
+            "recently_received": bool(received_payload),
+            "received_from_node": received_payload.get("source_node"),
+            "received_transfer_id": received_payload.get("id"),
+            "received_at": received_payload.get("completed_at"),
         }
 
     def _registered_name(self, path: Path) -> str | None:
@@ -139,3 +146,18 @@ class GgufLibrary:
             if model.path == target:
                 names.append(name)
         return names
+
+    def _received_by_path(self, transfers: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+        result = {}
+        for transfer in transfers:
+            copied = transfer.get("copied", [])
+            skipped = transfer.get("skipped", [])
+            items = []
+            if isinstance(copied, list):
+                items.extend(copied)
+            if isinstance(skipped, list):
+                items.extend(skipped)
+            for item in items:
+                if isinstance(item, dict) and item.get("path"):
+                    result[str(item["path"])] = transfer
+        return result

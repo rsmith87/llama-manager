@@ -15,9 +15,11 @@ import {
   nodeEditMarkup,
   nodeSummary,
   PROMPT_TEMPLATE_OPTIONS,
+  receivedBadgeText,
   sortModelsForDisplay,
   suggestedGgufModelName,
   suggestedPromptTemplate,
+  transferDestinationOptions,
 } from "/ui/nodes_view.js?v=nodes-edit-20260515";
 import {
   buildThreadMetadata,
@@ -30,6 +32,7 @@ const state = {
   nodeModels: [],
   conversions: [],
   downloads: [],
+  downloadQuants: [],
   quantizations: [],
   ggufFiles: [],
   chatMessages: [],
@@ -51,6 +54,7 @@ const state = {
   authUser: "",
   authRole: "",
   selectedGgufId: null,
+  pendingTransfer: null,
   selectedChatSessionId: "",
   activeThreadId: "",
   threadMode: "direct",
@@ -204,6 +208,13 @@ async function api(path, options = {}) {
     throw new Error(`${response.status} ${response.statusText}: ${text}`);
   }
   return response.json();
+}
+
+function repoIdPath(repoId) {
+  return String(repoId || "")
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
 }
 
 async function loginUi() {
@@ -888,7 +899,146 @@ function renderDownloads() {
   });
 }
 
-async function runDownloadAction({ downloadId, repoId, action }) {
+function renderDownloadQuants() {
+  const cards = $("download-quant-cards");
+  const status = $("download-quant-status");
+  if (!cards) return;
+  cards.innerHTML = state.downloadQuants.length
+    ? state.downloadQuants.map((item) => downloadQuantCard(item)).join("")
+    : "";
+  if (status) {
+    status.textContent = state.downloadQuants.length
+      ? `${state.downloadQuants.length} remote GGUF quant${state.downloadQuants.length === 1 ? "" : "s"} found.`
+      : "No remote GGUF quants loaded.";
+  }
+  cards.querySelectorAll("button[data-download-quant-path]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const repoId = ($("download-repo-id")?.value || "").trim();
+      if (!repoId) return showToast("Enter owner/model");
+      await runDownloadAction({
+        downloadId: "",
+        repoId,
+        action: "start",
+        includeFile: button.dataset.downloadQuantPath || "",
+      });
+    });
+  });
+  hydrateIcons();
+}
+
+function downloadQuantCard(item) {
+  const quant = quantLabel(item) || "GGUF";
+  const size = formatQuantSize(item.size_bytes);
+  const filename = item.filename || item.path || "model.gguf";
+  const fit = modelFitStatus(item.size_bytes);
+  const mmproj = item.mmproj ? mmprojBadge(item.mmproj) : "";
+  return `<article class="model-card download-quant-card">
+    <div class="download-quant-head">
+      <strong>${escapeHtml(quant)}</strong>
+      <div class="download-quant-badges">
+        ${mmproj}
+        <span class="fit-badge ${escapeHtml(fit.className)}" title="${escapeHtml(fit.detail)}"><span class="fit-dot"></span>${escapeHtml(fit.label)}</span>
+      </div>
+    </div>
+    <div class="download-quant-meta">
+      <div><span class="label">File</span><strong title="${escapeHtml(filename)}">${escapeHtml(filename)}</strong></div>
+      <div><span class="label">Size</span><strong>${escapeHtml(size)}</strong></div>
+      <div><span class="label">Path</span><strong title="${escapeHtml(item.path || filename)}">${escapeHtml(item.path || filename)}</strong></div>
+    </div>
+    <button class="primary" type="button" data-download-quant-path="${escapeHtml(item.path || "")}">Download</button>
+  </article>`;
+}
+
+function mmprojBadge(mmproj) {
+  const size = formatQuantSize(mmproj.size_bytes);
+  const quant = quantLabel(mmproj) || "mmproj";
+  const title = `${mmproj.path || mmproj.filename || "mmproj.gguf"} (${size})`;
+  return `<span class="mmproj-badge" title="${escapeHtml(title)}"><span data-icon="modal"></span>${escapeHtml(quant)}</span>`;
+}
+
+function formatQuantSize(bytes) {
+  if (typeof bytes !== "number" || Number.isNaN(bytes)) return "unknown size";
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function modelFitStatus(bytes) {
+  if (typeof bytes !== "number" || Number.isNaN(bytes)) {
+    return { className: "fit-unknown", label: "Unknown", detail: "Model size was not reported by Hugging Face." };
+  }
+  const sizeGb = bytes / 1024 / 1024 / 1024;
+  const vramGb = localVramGb();
+  const ram = state.health?.system?.ram;
+  const ramTotalGb = typeof ram?.total === "number" ? ram.total / 1024 / 1024 / 1024 : 0;
+  const ramAvailableGb = typeof ram?.available === "number" ? ram.available / 1024 / 1024 / 1024 : 0;
+
+  if (vramGb > 0 && sizeGb <= vramGb * 0.85) {
+    return {
+      className: "fit-good",
+      label: "Runs well",
+      detail: `Likely fits GPU memory (${sizeGb.toFixed(2)} GB model, ${vramGb.toFixed(1)} GB VRAM).`,
+    };
+  }
+  if (ramAvailableGb > 0 && sizeGb <= ramAvailableGb * 0.75) {
+    return {
+      className: "fit-good",
+      label: "Runs well",
+      detail: `Likely fits available system memory (${sizeGb.toFixed(2)} GB model, ${ramAvailableGb.toFixed(1)} GB RAM available).`,
+    };
+  }
+  if (ramTotalGb > 0 && sizeGb <= ramTotalGb * 0.85) {
+    return {
+      className: "fit-tight",
+      label: "Runs slow",
+      detail: `May run from system memory but likely slowly (${sizeGb.toFixed(2)} GB model, ${ramTotalGb.toFixed(1)} GB RAM total).`,
+    };
+  }
+  return {
+    className: "fit-too-large",
+    label: "Too large",
+    detail: ramTotalGb > 0
+      ? `Likely too large for this machine (${sizeGb.toFixed(2)} GB model, ${ramTotalGb.toFixed(1)} GB RAM total).`
+      : "Not enough local memory data to confirm this model can run.",
+  };
+}
+
+function localVramGb() {
+  const vram = state.health?.system?.vram;
+  if (!Array.isArray(vram) || !vram.length) return 0;
+  return Math.max(...vram.map((gpu) => Number(gpu.memory_total_mb || 0) / 1024));
+}
+
+function quantLabel(item) {
+  const source = `${item.quant || ""}/${item.path || ""}/${item.filename || ""}`.toUpperCase();
+  const match = source.match(/(?:^|[-_.\/])(MXFP[0-9](?:_[A-Z0-9]+)*|IQ[0-9](?:_[A-Z0-9]+)+|Q[0-9](?:_[A-Z0-9]+)+|BF16|F16|F32)(?:[-_.\/]|$)/);
+  return match ? match[1] : item.quant;
+}
+
+async function discoverDownloadQuants() {
+  const repoId = ($("download-repo-id")?.value || "").trim();
+  const revision = ($("download-revision")?.value || "").trim();
+  const button = $("download-discover-button");
+  if (!repoId) {
+    showToast("Enter owner/model");
+    return;
+  }
+  if (button) button.disabled = true;
+  const status = $("download-quant-status");
+  if (status) status.textContent = "Querying Hugging Face...";
+  try {
+    const params = new URLSearchParams({ repo_id: repoId });
+    if (revision) params.set("revision", revision);
+    state.downloadQuants = await api(`/downloads/quants?${params.toString()}`);
+    renderDownloadQuants();
+  } catch (error) {
+    state.downloadQuants = [];
+    renderDownloadQuants();
+    showToast(error.message);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function runDownloadAction({ downloadId, repoId, action, includeFile = "" }) {
   try {
     if (action === "logs") {
       await streamLogsIntoModal({
@@ -907,12 +1057,12 @@ async function runDownloadAction({ downloadId, repoId, action }) {
       return;
     }
     const revision = ($("download-revision")?.value || "").trim();
-    await api(`/downloads/${encodeURIComponent(repoId)}/start`, {
+    await api(`/downloads/${repoIdPath(repoId)}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ revision: revision || null }),
+      body: JSON.stringify({ revision: revision || null, include_file: includeFile || null }),
     });
-    showToast(`download started for ${repoId}`);
+    showToast(includeFile ? `download started for ${includeFile}` : `download started for ${repoId}`);
     await refreshAll();
   } catch (error) {
     showToast(error.message);
@@ -932,6 +1082,7 @@ function renderHealth() {
     health.mode === "controller"
       ? `${health.nodes_configured} nodes`
       : `${health.models_configured} models`;
+  renderDownloadQuants();
 }
 
 function renderLocalModels() {
@@ -1146,13 +1297,14 @@ function renderChatTargetOptions() {
 function libraryCard(file) {
   const status = file.registered ? `added as ${file.registered_as}` : "available";
   const statusClass = file.registered ? "running" : "stopped";
+  const receivedText = receivedBadgeText(file);
   return `<article class="library-card" tabindex="0" data-gguf-card="${escapeHtml(file.id)}" aria-label="Open details for ${escapeHtml(file.filename)}">
     <h3>${escapeHtml(file.filename)}</h3>
     <div class="library-card-grid">
       <div class="k">Directory</div><div class="v">${escapeHtml(file.model_dir)}</div>
       <div class="k">Library Name</div><div class="v">${escapeHtml(file.name || "-")}</div>
       <div class="k">Size</div><div class="v">${escapeHtml(formatGb(file.size_gb))} (${escapeHtml(formatBytes(file.size_bytes))})</div>
-      <div class="k">Status</div><div class="v"><span class="status ${statusClass}">${escapeHtml(status)}</span></div>
+      <div class="k">Status</div><div class="v"><span class="status ${statusClass}">${escapeHtml(status)}</span>${receivedText ? ` <span class="status received">${escapeHtml(receivedText)}</span>` : ""}</div>
       <div class="k">Path</div><div class="v mono" title="${escapeHtml(file.path)}">${escapeHtml(file.path)}</div>
       <div class="k">File ID</div><div class="v mono">${escapeHtml(file.id)}</div>
     </div>
@@ -1275,7 +1427,7 @@ function renderNodesPage() {
 
 function nodeCard(node, { compact }) {
   const models = node.models?.length
-    ? `<div class="model-cards">${sortModelsForDisplay(node.models).map((model) => modelCard(model, node.name)).join("")}</div>`
+    ? `<div class="model-cards">${sortModelsForDisplay(node.models).map((model) => modelCard(model, node.name, node)).join("")}</div>`
     : `<p class="empty">${escapeHtml(node.error || "No models reported.")}</p>`;
   const heartbeat = node.heartbeat_age_seconds == null ? "-" : `${node.heartbeat_age_seconds}s`;
   const provenance = [
@@ -1380,6 +1532,7 @@ function modelCard(model, nodeName = null) {
   const favoriteButton = nodeName
     ? ""
     : `<button class="icon-button favorite-button ${model.favorite ? "active" : ""}" type="button" data-favorite-model="${escapeHtml(model.name)}" data-favorite="${model.favorite ? "true" : "false"}" title="${model.favorite ? "Unfavorite model" : "Favorite model"}" aria-label="${model.favorite ? "Unfavorite model" : "Favorite model"}">${model.favorite ? "★" : "☆"}</button>`;
+  const canSend = Boolean(nodeName && model.file_id);
   return `<article class="model-card">
     <div class="model-card-head">
       <div class="model-name-cell">${favoriteButton}<strong>${escapeHtml(model.name)}</strong></div>
@@ -1396,6 +1549,7 @@ function modelCard(model, nodeName = null) {
       <button class="danger" data-action="stop" ${running ? "" : "disabled"}>Stop</button>
       <button data-action="restart">Restart</button>
       <button data-action="logs">Logs</button>
+      ${nodeName ? `<button data-action="send" ${canSend ? "" : "disabled"}>Send</button>` : ""}
     </div>
   </article>`;
 }
@@ -1428,9 +1582,50 @@ function bindModelButtons(root) {
       const model = container.dataset.model;
       const node = container.dataset.node;
       const action = button.dataset.action;
+      if (action === "send") {
+        openTransferModal({ nodeName: node, modelName: model });
+        return;
+      }
       await runModelAction({ model, node, action });
     });
   });
+}
+
+function openTransferModal({ nodeName, modelName }) {
+  const sourceNode = state.nodeModels.find((item) => item.name === nodeName);
+  const model = sourceNode?.models?.find((item) => item.name === modelName);
+  const sourceFileId = model?.file_id || "";
+  state.pendingTransfer = { sourceNode: nodeName, sourceFileId, modelName };
+  $("transfer-summary").innerHTML = `
+    <div><span class="detail-label">Source</span><span class="detail-value">${escapeHtml(nodeName || "-")}</span></div>
+    <div><span class="detail-label">Model</span><span class="detail-value">${escapeHtml(modelName || "-")}</span></div>
+    <div><span class="detail-label">File ID</span><span class="detail-value mono">${escapeHtml(sourceFileId || "-")}</span></div>
+  `;
+  const options = transferDestinationOptions(state.nodeModels, nodeName);
+  $("transfer-destination").innerHTML = options
+    .map((item) => `<option value="${escapeHtml(item.name)}">${escapeHtml(item.name)}</option>`)
+    .join("");
+  $("transfer-submit-button").disabled = !sourceFileId || options.length === 0;
+  openModal("transfer-modal");
+}
+
+async function submitTransfer() {
+  const pending = state.pendingTransfer;
+  if (!pending) return;
+  const destinationNode = $("transfer-destination").value;
+  if (!destinationNode) return showToast("Choose a destination node.");
+  const job = await api(`/nodes/${encodeURIComponent(pending.sourceNode)}/transfers`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      destination_node: destinationNode,
+      source_file_id: pending.sourceFileId,
+      include: "selected_with_sidecars",
+    }),
+  });
+  closeModal($("transfer-modal"));
+  showToast(`transfer queued: ${job.id}`);
+  await refreshNodesPageData();
 }
 
 function conversionRow(model) {
@@ -2984,6 +3179,7 @@ $("advisor-run-button")?.addEventListener("click", recommendQuantization);
 $("gguf-detail-add-button")?.addEventListener("click", () => void addSelectedGgufModel());
 $("gguf-detail-remove-button")?.addEventListener("click", () => void removeSelectedGgufModel());
 $("gguf-detail-delete-button")?.addEventListener("click", () => void deleteSelectedGguf());
+$("transfer-submit-button")?.addEventListener("click", () => void submitTransfer().catch((error) => showToast(error.message)));
 $("chat-input").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
@@ -3057,6 +3253,7 @@ $("node-edit-save-button")?.addEventListener("click", () => void saveNodeEdit().
 $("keys-create-button")?.addEventListener("click", () => void createAuthKey().catch((e) => showToast(e.message)));
 $("keys-refresh-button")?.addEventListener("click", () => void refreshAuthKeys());
 $("download-refresh-button")?.addEventListener("click", () => void refreshAll());
+$("download-discover-button")?.addEventListener("click", () => void discoverDownloadQuants());
 ["settings-log-dir", "settings-mode", "settings-controller-url", "settings-controller-api-key", "settings-registration-key", "settings-agent-api-key", "settings-agent-name", "settings-agent-url"].forEach((id) => {
   $(id)?.addEventListener("input", renderSettingsConfig);
   $(id)?.addEventListener("change", renderSettingsConfig);
